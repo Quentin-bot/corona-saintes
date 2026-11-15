@@ -1,0 +1,27 @@
+rules_version = '2';
+
+// Règles pour « Nos week-ends ».
+// Lecture/écriture ouvertes (pas de compte), mais limitées aux 5 collections
+// du site et à des documents de taille raisonnable.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    match /groups/{groupId}/{col}/{docId} {
+      function okCol() {
+        return col in ['people', 'weekends', 'ideas', 'comments', 'settings'];
+      }
+      function okSize() {
+        return request.resource.data.keys().size() <= 20;
+      }
+
+      allow read: if okCol();
+      allow create, update: if okCol() && okSize();
+      allow delete: if okCol();
+    }
+
+    // Tout le reste est fermé.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

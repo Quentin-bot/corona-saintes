@@ -3,7 +3,7 @@
 // ─────────────────────────────────────────────────────────────
 window.WEEKEND_CONFIG = {
   // Nom affiché en haut du site
-  APP_NAME: "Nos week-ends",
+  APP_NAME: "Corona Saintes",
 
   // Identifiant du groupe dans la base (lettres, chiffres, tirets).
   // Changer cette valeur = repartir d'un calendrier vide.
