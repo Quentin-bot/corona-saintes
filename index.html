@@ -228,6 +228,20 @@ dialog::backdrop{background:rgba(10,14,25,.5);backdrop-filter:blur(3px)}
 .small-dlg{width:min(400px,calc(100% - 32px));border-radius:20px;padding:22px}
 .small-dlg h2{font-size:22px;margin-bottom:6px}
 
+.tile.is-custom:not(.is-done){background-image:repeating-linear-gradient(-45deg,transparent 0 10px,color-mix(in oklab,var(--accent) 7%,transparent) 10px 20px)}
+.tile.is-custom .wk{color:var(--accent)}
+.tile.is-custom.is-done .wk{color:var(--done-ink)}
+.olist{background:var(--surface);border-radius:var(--r);box-shadow:var(--shadow);overflow:hidden}
+.ohead{padding:14px 14px 6px;font-family:var(--f-display);font-weight:700;font-size:15px;text-transform:capitalize;background:var(--sunk)}
+.orow{display:flex;align-items:center;gap:12px;padding:10px 14px;border-top:1px solid var(--line)}
+.orow .grow{flex:1;min-width:0}
+.orow.is-done{background:color-mix(in oklab,var(--done) 10%,var(--surface))}
+.ocount{font-size:13px;text-align:right;min-width:56px;line-height:1.25}
+.ocount b{font-size:16px}
+.pin-btn{flex:none;width:40px;height:40px;border-radius:12px;border:0;font-size:18px;background:var(--sunk);color:var(--muted);transition:transform .1s}
+.pin-btn:active{transform:scale(.9)}
+.pin-btn[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink)}
+@media (max-width:480px){.orow{gap:8px;padding:10px}.orow .btn{padding:6px 10px}}
 footer.foot{padding-block:30px 40px;color:var(--muted);font-size:13px;display:flex;gap:14px;flex-wrap:wrap;justify-content:space-between;align-items:center}
 .linkish{border:0;background:none;padding:0;color:var(--muted);text-decoration:underline;text-underline-offset:3px;font-size:13px}
 
@@ -454,6 +468,7 @@ function seedDemo(){
       i2:{wk:w8,place:"Maison à Arcachon",kind:"Mer",budget:"€€€",note:"",by:"camille-demo",byName:"Camille",voters:["lea-tom-demo"],at:Date.now()-4e6}
     },
     comments:{ c1:{wk:w8,by:"jules-demo",byName:"Jules",text:"Je peux prendre la voiture, 4 places dispo !",at:Date.now()-3e6} },
+    events:{ nouvelan:(()=>{ const y=new Date().getFullYear(); return {title:"Nouvel An",start:`${y}-12-31`,end:`${y+1}-01-03`,at:Date.now()} })() },
     settings:{}
   };
 }
@@ -478,7 +493,7 @@ async function firebaseStore(fc){
 
 /* ═══════════ État ═══════════ */
 const S = {
-  people:[], weekends:{}, ideas:[], comments:[], settings:{},
+  people:[], weekends:{}, ideas:[], comments:[], settings:{}, events:[], orgaSort:"date",
   loaded:new Set(), me:LS.get(K.me), admin:SS.get(K.admin)==="1",
   tab:LS.get(K.tab)||"cal", filter:"all", open:null, screen:null
 };
@@ -495,6 +510,23 @@ function stats(key){
   return r;
 }
 const meta = k => S.weekends[k]||{};
+
+/* Dates spéciales ajoutées par l'orga (Nouvel An, pont, vacances…) : elles se comportent comme un week-end */
+const TODAY = (()=>{ const d=new Date(); d.setHours(0,0,0,0); return d })();
+function eventItem(e){
+  if(!/^\d{4}-\d\d-\d\d$/.test(e.start||"") || !/^\d{4}-\d\d-\d\d$/.test(e.end||"")) return null;
+  const a=fromKey(e.start), b=fromKey(e.end);
+  if(b<a || b<TODAY) return null;
+  return {
+    key:"x-"+e.id, id:e.id, custom:true, title:e.title||"Date spéciale",
+    sat:a, sun:b, week:isoWeek(a), label:rangeLabel(a,b), days:Math.round((b-a)/864e5)+1,
+    hol:CAL.hols.filter(h=>h.date>=a && h.date<=b).map(h=>({...h,kind:"we",label:"Pendant ces dates"}))
+  };
+}
+const ITEMS = () => [...CAL.list, ...S.events.map(eventItem).filter(Boolean)]
+  .sort((x,y)=>x.sat-y.sat || (x.custom?1:0)-(y.custom?1:0));
+const byKey = k => CAL.byKey[k] || ITEMS().find(w=>w.key===k);
+const dayName = d => `${DAYS[d.getDay()]} ${d.getDate()} ${MONTHS[d.getMonth()]}`;
 
 /* ═══════════ Suggestions de destinations selon le nombre de dispo ═══════════ */
 function suggestions(n, w){
@@ -522,7 +554,12 @@ function render(){
   if(!meP()){ renderOnboard(); return }
   S.screen="main";
   const y=scrollY;
+  // garder ce qui est en cours de saisie quand les données des autres arrivent
+  const typed=[...app.querySelectorAll("input[id]")].filter(i=>i.type!=="radio").map(i=>[i.id,i.value]);
+  const focusId=app.contains(document.activeElement)?document.activeElement.id:null;
   app.innerHTML = header() + `<main class="wrap">${view()}</main>` + footer();
+  typed.forEach(([id,v])=>{ const el=document.getElementById(id); if(el&&app.contains(el)) el.value=v });
+  if(focusId) document.getElementById(focusId)?.focus({preventScroll:true});
   scrollTo(0,y);
   if(S.open) renderSheet();
 }
@@ -547,7 +584,7 @@ function header(){
 }
 function footer(){
   return `<footer class="wrap foot">
-    <span>${S.people.length} inscrits · ${totalW()} personnes · ${CAL.list.length} week-ends sur 12 mois</span>
+    <span>${S.people.length} inscrit${S.people.length>1?"s":""} · ${totalW()} personne${totalW()>1?"s":""} · ${ITEMS().length} dates sur 12 mois</span>
     ${S.admin?`<button class="linkish" data-act="admin-out">Quitter le mode orga</button>`:`<button class="linkish" data-act="admin-in">Mode orga</button>`}
   </footer>`;
 }
@@ -562,7 +599,7 @@ function view(){
 /* — Calendrier — */
 function viewCal(){
   const me=meP(), t=threshold();
-  const answered=CAL.list.filter(w=>me.votes?.[w.key]).length;
+  const answered=ITEMS().filter(w=>me.votes?.[w.key]).length;
   const F=[["all","Tous"],["todo","À cocher"],["hot",`Jouables (${t}+)`],["pin","Épinglés"],["hol","Avec férié"]];
   const keep=w=>{
     const s=stats(w.key), m=meta(w.key);
@@ -575,7 +612,7 @@ function viewCal(){
     }
   };
   const groups=new Map();
-  for(const w of CAL.list.filter(keep)){
+  for(const w of ITEMS().filter(keep)){
     const g=`${w.sat.getFullYear()}-${w.sat.getMonth()}`;
     if(!groups.has(g)) groups.set(g,{label:`${MONTHS[w.sat.getMonth()]} ${w.sat.getFullYear()}`,items:[]});
     groups.get(g).items.push(w);
@@ -584,7 +621,7 @@ function viewCal(){
   <section class="intro">
     <div>
       <h1>On se cale quel week-end ?</h1>
-      <p>Coche tes dispos sur chaque week-end : <b>✓</b> dispo, <b>?</b> peut-être, <b>✕</b> pas dispo. Plus un billet est vert, plus il y a de monde. Tu as répondu à <b class="num">${answered}/${CAL.list.length}</b> week-ends.</p>
+      <p>Coche tes dispos sur chaque week-end : <b>✓</b> dispo, <b>?</b> peut-être, <b>✕</b> pas dispo. Plus un billet est vert, plus il y a de monde. Tu as répondu à <b class="num">${answered}/${ITEMS().length}</b> week-ends.</p>
     </div>
     <div class="stack" style="gap:10px;align-items:flex-end">
       <div class="filters">${F.map(([id,l])=>`<button class="chip" aria-pressed="${S.filter===id}" data-act="filter" data-f="${id}">${l}</button>`).join("")}</div>
@@ -599,17 +636,18 @@ function viewCal(){
 }
 function tile(w){
   const s=stats(w.key), m=meta(w.key), mine=meP().votes?.[w.key], t=threshold(), tw=Math.max(totalW(),1);
-  const cls=["tile", m.validated&&"is-done", m.pinned&&!m.validated&&"is-pin"].filter(Boolean).join(" ");
+  const cls=["tile", w.custom&&"is-custom", m.validated&&"is-done", m.pinned&&!m.validated&&"is-pin"].filter(Boolean).join(" ");
   const badges=[];
   if(m.validated) badges.push(`<span class="pill done">Calé${m.place?` · ${esc(m.place)}`:""}</span>`);
   else if(s.yesW>=t) badges.push(`<span class="pill go">Jouable</span>`);
   if(m.pinned && !m.validated) badges.push(`<span class="pill pin">★ Proposé</span>`);
-  for(const h of w.hol) badges.push(`<span class="pill fer" title="${esc(h.name)} · ${esc(h.label)}">${h.kind==="we"?"Férié":h.kind==="long"?"3 jours":"Pont"}</span>`);
+  if(w.custom && w.hol.length) badges.push(`<span class="pill fer" title="${esc(w.hol.map(h=>h.name).join(", "))}">${w.hol.length>1?`${w.hol.length} fériés`:"Férié"}</span>`);
+  else for(const h of w.hol) badges.push(`<span class="pill fer" title="${esc(h.name)} · ${esc(h.label)}">${h.kind==="we"?"Férié":h.kind==="long"?"3 jours":"Pont"}</span>`);
   const nIdeas=S.ideas.filter(i=>i.wk===w.key).length;
   if(nIdeas && !m.validated) badges.push(`<span class="pill">${nIdeas} idée${nIdeas>1?"s":""}</span>`);
   return `<article class="${cls}" style="--h:${s.heat}">
     <button class="tile-main" data-act="open" data-k="${w.key}" aria-label="Week-end du ${w.label}, ${s.yesW} dispo">
-      <span class="tile-top"><span class="wk">SEMAINE ${w.week}</span></span>
+      <span class="tile-top"><span class="wk">${w.custom?`${esc(w.title.toUpperCase())} · ${w.days} JOURS`:`SEMAINE ${w.week}`}</span></span>
       <span class="dates">${w.label}</span>
       <span class="count num"><b>${s.yesW}</b> dispo${s.maybeW?` · ${s.maybeW} peut-être`:""}</span>
       <span class="badges">${badges.join("")}</span>
@@ -624,16 +662,16 @@ function tile(w){
 /* — Les plus chauds — */
 function viewTop(){
   const t=threshold();
-  const done=CAL.list.filter(w=>meta(w.key).validated);
-  const pinned=CAL.list.filter(w=>meta(w.key).pinned && !meta(w.key).validated);
-  const ranked=CAL.list.filter(w=>!meta(w.key).validated).map(w=>({w,s:stats(w.key)})).filter(x=>x.s.yesW>0).sort((a,b)=>b.s.score-a.s.score||a.w.sat-b.w.sat).slice(0,10);
+  const done=ITEMS().filter(w=>meta(w.key).validated);
+  const pinned=ITEMS().filter(w=>meta(w.key).pinned && !meta(w.key).validated);
+  const ranked=ITEMS().filter(w=>!meta(w.key).validated).map(w=>({w,s:stats(w.key)})).filter(x=>x.s.yesW>0).sort((a,b)=>b.s.score-a.s.score||a.w.sat-b.w.sat).slice(0,10);
   const row=(w,s,i)=>{
     const sg=s.yesW>=2?suggestions(s.yesW,w):null;
     const ideas=S.ideas.filter(x=>x.wk===w.key).sort((a,b)=>(b.voters?.length||0)-(a.voters?.length||0));
     return `<div class="card row">
       ${i!=null?`<span class="rank num">${i+1}</span>`:""}
       <div class="grow">
-        <div class="big-date">${w.label} <span class="muted" style="font-size:13px;font-family:var(--f-body);font-weight:500">· semaine ${w.week}</span></div>
+        <div class="big-date">${w.label} <span class="muted" style="font-size:13px;font-family:var(--f-body);font-weight:500">· ${w.custom?`${esc(w.title)} · ${w.days} jours`:`semaine ${w.week}`}</span></div>
         <div class="row" style="gap:6px;margin-top:6px">
           ${s.yesW>=t?`<span class="pill go">Jouable</span>`:`<span class="pill">Encore ${t-s.yesW} pour atteindre ${t}</span>`}
           ${w.hol.map(h=>`<span class="pill fer">${esc(h.name)}</span>`).join("")}
@@ -651,7 +689,7 @@ function viewTop(){
   </div></section>
   ${done.length?`<section class="section"><h2>C'est calé <span class="pill done">${done.length}</span></h2>
     <div class="stack">${done.map(w=>{const m=meta(w.key),s=stats(w.key);return `<div class="done-banner">
-      <div class="grow"><b>${w.label}</b><div>${m.place?esc(m.place)+" · ":""}${s.yesW} dispo</div></div>
+      <div class="grow"><b>${w.custom?esc(w.title)+" · ":""}${w.label}</b><div>${m.place?esc(m.place)+" · ":""}${s.yesW} dispo</div></div>
       <button class="btn sm" data-act="ics" data-k="${w.key}">Ajouter à mon agenda</button>
       <button class="btn sm" style="background:transparent;color:var(--done-ink);box-shadow:inset 0 0 0 1.5px var(--done-ink)" data-act="open" data-k="${w.key}">Détails</button></div>`}).join("")}
     ${done.length>1?`<div><button class="btn ghost sm" data-act="ics-all">Tout ajouter à l'agenda (${done.length})</button></div>`:""}
@@ -673,7 +711,7 @@ function viewFeries(){
   </div></section>
   <section class="stack" style="padding-bottom:10px">
   ${CAL.hols.map(h=>{
-    const w=CAL.byKey[h.wk], s=w?stats(w.key):null, m=w?meta(w.key):{};
+    const w=byKey(h.wk), s=w?stats(w.key):null, m=w?meta(w.key):{};
     return `<div class="card hol">
       <div class="hol-date"><div class="m">${DAYS[h.date.getDay()].slice(0,3)}.</div><div class="d num">${h.date.getDate()}</div><div class="m">${MS[h.date.getMonth()]}</div></div>
       <div style="min-width:0">
@@ -691,10 +729,10 @@ function viewFeries(){
 
 /* — Qui manque à l'appel — */
 function viewMissing(){
-  const n=CAL.list.length;
-  const rows=S.people.map(p=>({p,c:CAL.list.filter(w=>p.votes?.[w.key]).length})).sort((a,b)=>a.c-b.c||a.p.name.localeCompare(b.p.name));
+  const n=ITEMS().length;
+  const rows=S.people.map(p=>({p,c:ITEMS().filter(w=>p.votes?.[w.key]).length})).sort((a,b)=>a.c-b.c||a.p.name.localeCompare(b.p.name));
   const zero=rows.filter(r=>r.c===0), full=rows.filter(r=>r.c===n).length;
-  const pinnedOpen=CAL.list.filter(w=>meta(w.key).pinned&&!meta(w.key).validated);
+  const pinnedOpen=ITEMS().filter(w=>meta(w.key).pinned&&!meta(w.key).validated);
   return `
   <section class="intro">
     <div><h1>Qui manque à l'appel ?</h1>
@@ -710,7 +748,7 @@ function viewMissing(){
     </div>`).join("")}
   </section>
   ${pinnedOpen.length?`<section class="section" style="padding-top:20px"><h2>Sur les week-ends proposés</h2><div class="stack">
-    ${pinnedOpen.map(w=>{const s=stats(w.key);return `<div class="card row"><div class="grow"><div class="big-date">${w.label}</div>
+    ${pinnedOpen.map(w=>{const s=stats(w.key);return `<div class="card row"><div class="grow"><div class="big-date">${w.custom?esc(w.title)+" · ":""}${w.label}</div>
       <div class="faces" style="margin-top:8px">${s.none.length?s.none.map(p=>face(p)).join(""):`<span class="muted">Tout le monde a répondu.</span>`}</div></div>
       <button class="btn ghost sm" data-act="open" data-k="${w.key}">Ouvrir</button></div>`}).join("")}
   </div></section>`:""}`;
@@ -718,10 +756,47 @@ function viewMissing(){
 
 /* — Orga — */
 function viewOrga(){
+  const t=threshold();
+  const sorted=S.orgaSort==="dispo"
+    ? ITEMS().map(w=>({w,s:stats(w.key)})).sort((a,b)=>b.s.score-a.s.score||a.w.sat-b.w.sat)
+    : ITEMS().map(w=>({w,s:stats(w.key)}));
+  const nPin=ITEMS().filter(w=>meta(w.key).pinned&&!meta(w.key).validated).length;
+  const nDone=ITEMS().filter(w=>meta(w.key).validated).length;
+  let lastMonth="";
+  const rows=sorted.map(({w,s})=>{
+    const m=meta(w.key);
+    const mk=`${MONTHS[w.sat.getMonth()]} ${w.sat.getFullYear()}`;
+    const head=S.orgaSort!=="dispo"&&mk!==lastMonth?`<div class="ohead">${mk}</div>`:"";
+    lastMonth=mk;
+    return `${head}<div class="orow ${m.validated?"is-done":""}">
+      <button class="pin-btn" aria-pressed="${!!m.pinned}" data-act="pin" data-k="${w.key}" aria-label="${m.pinned?"Retirer l'épingle":"Épingler"} le ${w.label}" title="${m.pinned?"Retirer l'épingle":"Épingler"}">★</button>
+      <div class="grow">
+        <b>${w.label}</b> <span class="muted" style="font-size:12px">${w.custom?`${esc(w.title)} · ${w.days} j`:`S${w.week}`}</span>
+        <div class="row" style="gap:4px;margin-top:3px">
+          ${m.validated?`<span class="pill done">Calé${m.place?` · ${esc(m.place)}`:""}</span>`:""}
+          ${!m.validated&&s.yesW>=t?`<span class="pill go">Jouable</span>`:""}
+          ${w.hol.map(h=>`<span class="pill fer">${esc(h.name)}</span>`).join("")}
+        </div>
+      </div>
+      <span class="num ocount"><b>${s.yesW}</b> dispo${s.maybeW?`<br><span class="muted">+${s.maybeW} ?</span>`:""}</span>
+      <button class="btn ${m.validated?"ghost":"done"} sm" data-act="open" data-k="${w.key}">${m.validated?"Fiche":"Valider…"}</button>
+    </div>`;
+  }).join("");
   return `
   <section class="intro"><div><h1>Espace orga</h1>
-    <p>Pour épingler ou valider un week-end, ouvre-le depuis le calendrier : les actions orga apparaissent en bas de la fiche.</p></div></section>
-  <section class="section"><div class="card form-stack" style="max-width:520px">
+    <p>Touche l'étoile ★ pour épingler un week-end : il apparaît alors comme « Proposé » pour toute la bande. « Valider… » ouvre la fiche pour choisir le lieu et caler le week-end.</p></div></section>
+  <section class="section">
+    <div class="row" style="justify-content:space-between;margin-bottom:12px">
+      <h2 style="margin:0">Les week-ends <span class="pill pin">★ ${nPin} épinglé${nPin>1?"s":""}</span> <span class="pill done">${nDone} calé${nDone>1?"s":""}</span></h2>
+      <div class="filters">
+        <button class="chip" aria-pressed="${S.orgaSort!=="dispo"}" data-act="orga-sort" data-s="date">Par date</button>
+        <button class="chip" aria-pressed="${S.orgaSort==="dispo"}" data-act="orga-sort" data-s="dispo">Les plus de dispo</button>
+      </div>
+    </div>
+    <div class="olist">${rows}</div>
+  </section>
+  ${specialDatesSection()}
+  <section class="section"><h2>Réglages</h2><div class="card form-stack" style="max-width:520px">
     <form id="threshold-form" class="form-stack">
       <div class="field"><label for="threshold">Un week-end est « jouable » à partir de combien de personnes dispo ?</label>
       <div class="row"><input id="threshold" class="input" type="number" min="1" max="60" value="${threshold()}" style="max-width:110px"><button class="btn" type="submit">Enregistrer</button></div></div>
@@ -734,6 +809,32 @@ function viewOrga(){
     </div>`).join("")}
   </div></section>
   ${store.demo?`<section class="section"><button class="btn ghost" data-act="reset-demo">Réinitialiser les données de démo</button></section>`:""}`;
+}
+
+function specialDatesSection(){
+  const evs=S.events.map(eventItem).filter(Boolean).sort((a,b)=>a.sat-b.sat);
+  const minD=keyOf(TODAY), maxD=keyOf(addDays(TODAY,400));
+  return `<section class="section" id="special">
+    <h2>Dates spéciales</h2>
+    <p class="muted" style="margin:-4px 0 14px;max-width:60ch">Pour un séjour qui ne tombe pas pile sur un week-end : Nouvel An, pont de mai, vacances… La date apparaît dans le calendrier comme un billet à part, et chacun peut y cocher ses dispos, proposer des lieux et commenter. Si elle chevauche un week-end, les deux restent affichés.</p>
+    <div class="card" style="max-width:640px">
+      <form id="event-form" class="form-stack" autocomplete="off">
+        <div class="field"><label for="ev-title">Nom</label>
+          <input id="ev-title" class="input" maxlength="40" required placeholder="Ex. : Nouvel An, Pont de l'Ascension…"></div>
+        <div class="two">
+          <div class="field"><label for="ev-start">Du</label><input id="ev-start" class="input" type="date" required min="${minD}" max="${maxD}"></div>
+          <div class="field"><label for="ev-end">Au (inclus)</label><input id="ev-end" class="input" type="date" required min="${minD}" max="${maxD}"></div>
+        </div>
+        <div class="err" id="ev-err"></div>
+        <div><button class="btn accent" type="submit">Ajouter la date</button></div>
+      </form>
+    </div>
+    ${evs.length?`<div class="olist" style="margin-top:14px;max-width:640px">${evs.map(w=>`<div class="orow">
+      <div class="grow"><b>${esc(w.title)}</b><div class="muted" style="font-size:13px">Du ${dayName(w.sat)} au ${dayName(w.sun)} · ${w.days} jours</div></div>
+      <button class="btn ghost sm" data-act="open" data-k="${w.key}">Fiche</button>
+      <button class="btn danger sm" data-act="del-event" data-id="${w.id}">Supprimer</button>
+    </div>`).join("")}</div>`:""}
+  </section>`;
 }
 
 /* — Accueil / inscription — */
@@ -796,10 +897,10 @@ sheet.addEventListener("click",e=>{ if(e.target===sheet) sheet.close() });
 const safeSet=(sel,html)=>{ const el=$(sel); if(!el.contains(document.activeElement)||!/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)) el.innerHTML=html };
 
 function renderSheet(){
-  const w=CAL.byKey[S.open]; if(!w) return;
+  const w=byKey(S.open); if(!w) return;
   const s=stats(w.key), m=meta(w.key), me=meP(), mine=me.votes?.[w.key], t=threshold();
   $("#sh-head").innerHTML=`
-    <div class="eyebrow">Semaine ${w.week} · ${DAYS[6]} ${w.sat.getDate()} et ${DAYS[0]} ${w.sun.getDate()} ${MONTHS[w.sun.getMonth()]}</div>
+    <div class="eyebrow">${w.custom?`${esc(w.title)} · du ${dayName(w.sat)} au ${dayName(w.sun)}`:`Semaine ${w.week} · ${DAYS[6]} ${w.sat.getDate()} et ${DAYS[0]} ${w.sun.getDate()} ${MONTHS[w.sun.getMonth()]}`}</div>
     <h2 id="sh-title" style="margin-top:4px">${w.label}</h2>
     <div class="row" style="gap:6px;margin-top:8px">
       <span class="pill ${s.yesW>=t?"go":""} num">${s.yesW} dispo · ${s.maybeW} peut-être · ${s.noW} non</span>
@@ -850,7 +951,7 @@ function icsEvent(w){
   const s=stats(w.key);
   const stamp=new Date().toISOString().replace(/[-:]/g,"").replace(/\.\d+/,"");
   return ["BEGIN:VEVENT",`UID:${w.key}-${CFG.GROUP_ID}@weekends`,`DTSTAMP:${stamp}`,`DTSTART;VALUE=DATE:${d(start)}`,`DTEND;VALUE=DATE:${d(end)}`,
-    `SUMMARY:${txt(`Week-end entre amis${m.place?` · ${m.place}`:""}`)}`, m.place?`LOCATION:${txt(m.place)}`:null,
+    `SUMMARY:${txt(`${w.custom?w.title:"Week-end entre amis"}${m.place?` · ${m.place}`:""}`)}`, m.place?`LOCATION:${txt(m.place)}`:null,
     `DESCRIPTION:${txt(`Avec : ${s.yes.map(p=>p.name).join(", ")}\n${location.href.split("#")[0]}`)}`,"END:VEVENT"].filter(Boolean).join("\r\n");
 }
 function downloadIcs(weeks, name){
@@ -885,6 +986,7 @@ document.addEventListener("click", async e=>{
   switch(act){
     case "tab": S.tab=b.dataset.tab; LS.set(K.tab,S.tab); scrollTo(0,0); schedule(); break;
     case "filter": S.filter=b.dataset.f; schedule(); break;
+    case "orga-sort": S.orgaSort=b.dataset.s; schedule(); break;
     case "open": openSheet(k); break;
     case "close-sheet": sheet.close(); break;
     case "vote": {
@@ -901,12 +1003,12 @@ document.addEventListener("click", async e=>{
     case "pin": await store.set("weekends",k,{pinned:!meta(k).pinned}); toast(meta(k).pinned?"Week-end épinglé":"Épingle retirée"); renderSheet(); break;
     case "validate-idea": { const i=S.ideas.find(x=>x.id===id); if(i) await validate(i.wk,i.place); break }
     case "unvalidate": await store.set("weekends",k,{validated:false}); toast("Validation annulée"); renderSheet(); break;
-    case "ics": downloadIcs([CAL.byKey[k]],`week-end-${k}.ics`); break;
-    case "ics-all": downloadIcs(CAL.list.filter(w=>meta(w.key).validated),"nos-week-ends.ics"); break;
+    case "ics": downloadIcs([byKey(k)],`week-end-${k}.ics`); break;
+    case "ics-all": downloadIcs(ITEMS().filter(w=>meta(w.key).validated),"nos-week-ends.ics"); break;
     case "remind": {
-      const n=CAL.list.length;
-      const late=S.people.filter(p=>CAL.list.filter(w=>p.votes?.[w.key]).length<n*.5).map(p=>p.name);
-      const pins=CAL.list.filter(w=>meta(w.key).pinned&&!meta(w.key).validated).map(w=>w.label);
+      const n=ITEMS().length;
+      const late=S.people.filter(p=>ITEMS().filter(w=>p.votes?.[w.key]).length<n*.5).map(p=>p.name);
+      const pins=ITEMS().filter(w=>meta(w.key).pinned&&!meta(w.key).validated).map(w=>w.label);
       const txt=`Petit rappel pour nos week-ends 🗓️\n${late.length?`Il nous manque encore vos dispos : ${late.join(", ")}.\n`:""}${pins.length?`Week-ends proposés : ${pins.join(", ")}.\n`:""}On coche ici : ${location.href.split("#")[0]}`;
       toast(await copyText(txt)?"Rappel copié : colle-le dans le groupe":"Copie impossible sur cet appareil"); break;
     }
@@ -916,6 +1018,10 @@ document.addEventListener("click", async e=>{
     case "del-person":
       if(b.dataset.confirm){ await store.del("people",id); toast("Retiré de la bande") }
       else { b.dataset.confirm="1"; b.textContent="Confirmer le retrait ?"; setTimeout(()=>{ if(b.isConnected){ delete b.dataset.confirm; b.textContent="Retirer" } },4000) }
+      break;
+    case "del-event":
+      if(b.dataset.confirm){ await store.del("events",id); toast("Date spéciale supprimée") }
+      else { b.dataset.confirm="1"; b.textContent="Confirmer ?"; setTimeout(()=>{ if(b.isConnected){ delete b.dataset.confirm; b.textContent="Supprimer" } },4000) }
       break;
     case "reset-demo": await store.reset(); toast("Démo réinitialisée"); break;
   }
@@ -952,6 +1058,16 @@ document.addEventListener("submit", async e=>{
     $("#comment-text").value="";
   }
   if(f.id==="validate-form"){ await validate(S.open,$("#validate-place").value.trim()) }
+  if(f.id==="event-form"){
+    const err=$("#ev-err"); err.textContent="";
+    const title=$("#ev-title").value.trim(), start=$("#ev-start").value, end=$("#ev-end").value;
+    if(!title||!start||!end){ err.textContent="Il faut un nom, une date de début et une date de fin."; return }
+    if(end<start){ err.textContent="La date de fin doit être après la date de début."; return }
+    if((fromKey(end)-fromKey(start))/864e5>20){ err.textContent="21 jours maximum pour une date spéciale."; return }
+    $("#ev-title").value=""; $("#ev-start").value=""; $("#ev-end").value="";
+    await store.add("events",{title,start,end,at:Date.now()});
+    toast(`« ${title} » ajouté au calendrier`);
+  }
   if(f.id==="threshold-form"){ const v=Math.max(1,Number($("#threshold").value)||4); await store.set("settings","main",{threshold:v}); toast(`Seuil réglé à ${v} personnes`) }
   if(f.id==="admin-form"){
     if($("#admin-code").value===String(CFG.ADMIN_CODE)){ S.admin=true; SS.set(K.admin,"1"); $("#admin-dlg").close(); S.tab="orga"; toast("Mode orga activé"); schedule() }
@@ -972,6 +1088,7 @@ document.addEventListener("change", e=>{
   on("weekends",d=>S.weekends=Object.fromEntries(d.map(x=>[x.id,x])));
   on("ideas",d=>S.ideas=d);
   on("comments",d=>S.comments=d);
+  on("events",d=>S.events=d);
   on("settings",d=>S.settings=d.find(x=>x.id==="main")||{});
 })();
 </script>
