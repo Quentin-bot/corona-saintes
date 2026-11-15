@@ -1,0 +1,979 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Nos week-ends</title>
+<meta name="description" content="On coche ses dispos, on trouve le week-end, on choisit le lieu.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Inter:wght@400;500;600;700&display=swap">
+<style>
+/* Layout : en-tête collant + rail d'onglets ; chaque mois = une grille de « billets » de week-end ; le détail s'ouvre en bottom-sheet. */
+:root{
+  --bg:#F1F3F9; --surface:#FFFFFF; --sunk:#E7EBF3; --ink:#131A2C; --muted:#5A6378; --line:#DADFEA;
+  --go:#2BBF8A; --go-ink:#0A3324; --maybe:#F4B63B; --no:#E5607A;
+  --accent:#5552EE; --accent-ink:#FFFFFF; --done:#FF6A3D; --done-ink:#3A1404;
+  --hm:.72; --shadow:0 1px 2px rgba(19,26,44,.06),0 6px 20px -8px rgba(19,26,44,.18);
+  --f-display:"Bricolage Grotesque","Avenir Next","Segoe UI",system-ui,sans-serif;
+  --f-body:"Inter",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --r:16px;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0D111D; --surface:#161C2C; --sunk:#10162A; --ink:#ECF0F8; --muted:#98A2B9; --line:#273047;
+  --go:#22A97A; --go-ink:#03140D; --maybe:#E6A72A; --no:#DD566F;
+  --accent:#8481FF; --accent-ink:#0D0F24; --done:#FF7B52; --done-ink:#2A0E02;
+  --hm:.55; --shadow:0 1px 2px rgba(0,0,0,.3),0 8px 24px -10px rgba(0,0,0,.6); color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0D111D; --surface:#161C2C; --sunk:#10162A; --ink:#ECF0F8; --muted:#98A2B9; --line:#273047;
+  --go:#22A97A; --go-ink:#03140D; --maybe:#E6A72A; --no:#DD566F;
+  --accent:#8481FF; --accent-ink:#0D0F24; --done:#FF7B52; --done-ink:#2A0E02;
+  --hm:.55; --shadow:0 1px 2px rgba(0,0,0,.3),0 8px 24px -10px rgba(0,0,0,.6); color-scheme:dark}
+
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font:15px/1.5 var(--f-body);-webkit-font-smoothing:antialiased;min-height:100vh}
+[hidden]{display:none!important}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2.5px solid var(--accent);outline-offset:2px;border-radius:8px}
+h1,h2,h3{font-family:var(--f-display);text-wrap:balance;margin:0;line-height:1.1}
+.wrap{max-width:1120px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.muted{color:var(--muted)}
+.num{font-variant-numeric:tabular-nums}
+.eyebrow{font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+
+/* Boutons */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:0;border-radius:999px;padding:10px 18px;font-weight:600;background:var(--ink);color:var(--surface);transition:transform .12s ease,opacity .12s}
+.btn:hover{opacity:.9}.btn:active{transform:scale(.97)}
+.btn.ghost{background:transparent;color:var(--ink);box-shadow:inset 0 0 0 1.5px var(--line)}
+.btn.accent{background:var(--accent);color:var(--accent-ink)}
+.btn.done{background:var(--done);color:var(--done-ink)}
+.btn.sm{padding:6px 12px;font-size:13px}
+.btn.danger{background:transparent;color:var(--no);box-shadow:inset 0 0 0 1.5px var(--no)}
+.icon-btn{border:0;background:var(--sunk);width:36px;height:36px;border-radius:50%;display:grid;place-items:center;font-size:16px}
+.pill{display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:600;padding:2px 9px;border-radius:999px;background:var(--sunk);color:var(--muted);white-space:nowrap}
+.pill.go{background:color-mix(in oklab,var(--go) 22%,transparent);color:var(--ink)}
+.pill.fer{background:color-mix(in oklab,var(--maybe) 28%,transparent);color:var(--ink)}
+.pill.pin{background:color-mix(in oklab,var(--accent) 20%,transparent);color:var(--ink)}
+.pill.done{background:var(--done);color:var(--done-ink)}
+
+/* En-tête */
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:30;background:var(--bg)}
+.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;background:color-mix(in oklab,var(--bg) 88%,transparent);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-bottom:1px solid var(--line)}
+.top-row{display:flex;align-items:center;gap:12px;padding-block:12px}
+.brand{font-family:var(--f-display);font-weight:800;font-size:22px;letter-spacing:-.02em;display:flex;align-items:center;gap:10px;min-width:0}
+.brand .logo{width:32px;height:32px;border-radius:10px;background:var(--ink);color:var(--bg);display:grid;place-items:center;font-size:15px;flex:none}
+.brand span.t{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.me{margin-left:auto;display:flex;align-items:center;gap:8px;font-size:14px;min-width:0}
+.me b{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:40vw}
+@media (max-width:480px){.me > .muted{display:none}.brand{font-size:19px}}
+.tabs{display:flex;gap:4px;overflow-x:auto;scrollbar-width:none;padding-bottom:10px}
+.tabs::-webkit-scrollbar{display:none}
+.tab{border:0;background:transparent;padding:8px 14px;border-radius:999px;font-weight:600;font-size:14px;color:var(--muted);white-space:nowrap;display:flex;gap:6px;align-items:center}
+.tab[aria-selected="true"]{background:var(--ink);color:var(--surface)}
+.tab .n{font-size:11px;background:var(--done);color:var(--done-ink);border-radius:999px;padding:0 6px;line-height:18px}
+.demo{background:color-mix(in oklab,var(--maybe) 25%,var(--bg));font-size:13px;padding-block:8px;text-align:center}
+
+/* Intro de vue */
+.intro{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:16px;padding-block:28px 18px}
+.intro h1{font-size:clamp(28px,5vw,44px);font-weight:800;letter-spacing:-.03em}
+.intro p{margin:6px 0 0;color:var(--muted);max-width:60ch}
+.filters{display:flex;gap:6px;flex-wrap:wrap}
+.chip{border:0;border-radius:999px;padding:7px 13px;font-size:13px;font-weight:600;background:var(--surface);box-shadow:inset 0 0 0 1.5px var(--line);color:var(--ink)}
+.chip[aria-pressed="true"]{background:var(--ink);color:var(--surface);box-shadow:none}
+.legend{display:flex;align-items:center;gap:10px;font-size:12px;color:var(--muted);flex-wrap:wrap}
+.legend .scale{display:flex;border-radius:6px;overflow:hidden}
+.legend .scale i{width:20px;height:10px;display:block}
+
+/* Mois + billets */
+.month{padding-block:10px 18px}
+.month-head{display:flex;align-items:baseline;gap:10px;margin-bottom:12px}
+.month-head h2{font-size:22px;font-weight:700;text-transform:capitalize;letter-spacing:-.01em}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(168px,1fr));gap:12px}
+@media (max-width:420px){.grid{grid-template-columns:1fr 1fr;gap:10px}}
+.tile{position:relative;border-radius:var(--r);background:color-mix(in oklab,var(--go) calc(var(--h) * var(--hm) * 1%),var(--surface));box-shadow:var(--shadow);display:flex;flex-direction:column;overflow:hidden;transition:transform .15s ease}
+.tile:hover{transform:translateY(-2px)}
+.tile::after{content:"";position:absolute;left:0;right:0;top:58%;border-top:2px dashed color-mix(in oklab,var(--ink) 14%,transparent);pointer-events:none}
+.tile.is-pin{box-shadow:var(--shadow),inset 0 0 0 2.5px var(--accent)}
+.tile.is-done{background:var(--done);color:var(--done-ink)}
+.tile.is-done .count,.tile.is-done .wk{color:var(--done-ink)}
+.tile-main{border:0;background:transparent;text-align:left;padding:12px 12px 10px;display:flex;flex-direction:column;gap:2px;flex:1;color:inherit}
+.tile-top{display:flex;justify-content:space-between;align-items:center;gap:6px}
+.wk{font-size:11px;font-weight:700;letter-spacing:.06em;color:var(--muted)}
+.dates{font-family:var(--f-display);font-size:21px;font-weight:700;letter-spacing:-.02em;line-height:1.15}
+.count{font-size:13px;color:var(--muted)}
+.count b{color:var(--ink);font-size:15px}
+.tile.is-done .count b{color:var(--done-ink)}
+.badges{display:flex;gap:4px;flex-wrap:wrap;margin-top:4px;min-height:21px}
+.tile.is-done .pill{background:rgba(255,255,255,.45);color:var(--done-ink)}
+.bar{display:flex;height:5px;border-radius:5px;overflow:hidden;background:color-mix(in oklab,var(--ink) 9%,transparent);margin-top:8px}
+.bar i{display:block;height:100%}
+.my{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;padding:12px}
+.v{border:0;border-radius:10px;padding:7px 0;font-weight:700;font-size:15px;background:color-mix(in oklab,var(--surface) 70%,transparent);box-shadow:inset 0 0 0 1.5px color-mix(in oklab,var(--ink) 12%,transparent);color:var(--muted);transition:transform .1s}
+.v:active{transform:scale(.92)}
+.v[aria-pressed="true"].yes{background:var(--go);color:var(--go-ink);box-shadow:none}
+.v[aria-pressed="true"].maybe{background:var(--maybe);color:#2A1C00;box-shadow:none}
+.v[aria-pressed="true"].no{background:var(--no);color:#2A0710;box-shadow:none}
+.tile.is-done .v{background:rgba(255,255,255,.35);color:var(--done-ink)}
+@keyframes pop{0%{transform:scale(1)}40%{transform:scale(1.18)}100%{transform:scale(1)}}
+.v.popped{animation:pop .28s ease}
+
+/* Listes / cartes */
+.stack{display:flex;flex-direction:column;gap:12px}
+.card{background:var(--surface);border-radius:var(--r);box-shadow:var(--shadow);padding:16px}
+.section{padding-block:6px 22px}
+.section > h2{font-size:20px;margin-bottom:12px;display:flex;align-items:center;gap:10px}
+.row{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.row .grow{flex:1;min-width:0}
+.rank{font-family:var(--f-display);font-weight:800;font-size:28px;width:40px;color:var(--muted);flex:none}
+.big-date{font-family:var(--f-display);font-weight:700;font-size:20px;letter-spacing:-.01em}
+.score{display:flex;align-items:baseline;gap:4px;font-family:var(--f-display)}
+.score b{font-size:30px;font-weight:800}
+.empty{border:2px dashed var(--line);border-radius:var(--r);padding:24px;text-align:center;color:var(--muted)}
+.faces{display:flex;flex-wrap:wrap;gap:6px}
+.face{display:inline-flex;align-items:center;gap:6px;padding:3px 10px 3px 3px;border-radius:999px;background:var(--sunk);font-size:13px;font-weight:500}
+.face i{width:24px;height:24px;border-radius:50%;display:grid;place-items:center;font-style:normal;font-size:11px;font-weight:700;color:#131A2C}
+.face.x2::after{content:"×2";font-size:10px;font-weight:700;color:var(--muted)}
+.progress{height:8px;border-radius:8px;background:var(--sunk);overflow:hidden;flex:1;min-width:80px}
+.progress i{display:block;height:100%;background:var(--go);border-radius:8px}
+
+/* Jours fériés */
+.hol{display:grid;grid-template-columns:76px 1fr auto;gap:14px;align-items:center}
+.hol-date{text-align:center;border-radius:12px;background:var(--sunk);padding:8px 4px;line-height:1.1}
+.hol-date .d{font-family:var(--f-display);font-size:26px;font-weight:800}
+.hol-date .m{font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.hol h3{font-size:18px}
+@media (max-width:520px){.hol{grid-template-columns:64px 1fr}.hol .btn{grid-column:1/-1}}
+
+/* Accueil */
+.onboard{min-height:100vh;display:grid;place-items:center;padding-block:32px}
+.ob{width:min(520px,100%)}
+.ob h1{font-size:clamp(40px,9vw,64px);font-weight:800;letter-spacing:-.04em;line-height:.95}
+.ob h1 em{font-style:normal;color:var(--accent)}
+.ob .lead{color:var(--muted);font-size:17px;margin:14px 0 26px;max-width:42ch}
+.choice{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.choice label{position:relative;cursor:pointer}
+.choice input{position:absolute;opacity:0;pointer-events:none}
+.choice .opt{display:flex;flex-direction:column;gap:4px;padding:16px;border-radius:var(--r);background:var(--surface);box-shadow:inset 0 0 0 2px var(--line);transition:box-shadow .15s,transform .15s}
+.choice .opt b{font-family:var(--f-display);font-size:19px}
+.choice .opt .ico{font-size:24px}
+.choice .opt small{color:var(--muted)}
+.choice input:checked + .opt{box-shadow:inset 0 0 0 2.5px var(--accent);transform:translateY(-2px)}
+.choice input:focus-visible + .opt{outline:2.5px solid var(--accent);outline-offset:2px}
+.field{display:flex;flex-direction:column;gap:6px}
+.field label{font-size:13px;font-weight:600}
+.input{width:100%;border:0;border-radius:12px;padding:12px 14px;background:var(--surface);box-shadow:inset 0 0 0 1.5px var(--line)}
+.input:focus{outline:none;box-shadow:inset 0 0 0 2px var(--accent)}
+.form-stack{display:flex;flex-direction:column;gap:14px}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.err{color:var(--no);font-size:13px;font-weight:600;min-height:1em}
+.already{margin-top:26px;padding-top:18px;border-top:1px solid var(--line)}
+.already .faces{margin-top:10px}
+.already button.face{border:0;cursor:pointer}
+.already button.face:hover{background:color-mix(in oklab,var(--accent) 18%,var(--sunk))}
+
+/* Bottom sheet / dialogues */
+dialog{border:0;padding:0;background:var(--surface);color:var(--ink);box-shadow:0 20px 60px -10px rgba(0,0,0,.4)}
+dialog::backdrop{background:rgba(10,14,25,.5);backdrop-filter:blur(3px)}
+.sheet{width:min(680px,100%);max-width:100%;max-height:min(92vh,920px);margin:auto auto 0;border-radius:24px 24px 0 0;overflow:hidden}
+.sheet[open]{display:flex;flex-direction:column;animation:up .28s cubic-bezier(.2,.9,.3,1)}
+@keyframes up{from{transform:translateY(40px);opacity:.4}to{transform:none;opacity:1}}
+@media (min-width:760px){.sheet{margin:auto;border-radius:24px}}
+.sheet-head{display:flex;align-items:flex-start;gap:12px;padding:20px max(20px,env(safe-area-inset-right,0px)) 14px max(20px,env(safe-area-inset-left,0px));border-bottom:1px solid var(--line)}
+.sheet-head > div{flex:1;min-width:0}
+.sheet-head h2{font-size:28px;font-weight:800;letter-spacing:-.02em}
+.sheet-body{overflow-y:auto;padding:18px max(20px,env(safe-area-inset-right,0px)) calc(24px + env(safe-area-inset-bottom,0px)) max(20px,env(safe-area-inset-left,0px));display:flex;flex-direction:column;gap:22px}
+.block h3{font-size:17px;margin-bottom:10px;display:flex;align-items:center;gap:8px}
+.seg{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.seg .v{padding:12px 0;font-size:15px;background:var(--sunk);box-shadow:none}
+.who{display:grid;gap:10px}
+.who-row{display:grid;grid-template-columns:110px 1fr;gap:10px;align-items:start}
+.who-row .lbl{font-size:13px;font-weight:600;display:flex;align-items:center;gap:6px;padding-top:4px}
+.who-row .lbl i{width:10px;height:10px;border-radius:50%;display:block}
+@media (max-width:460px){.who-row{grid-template-columns:1fr}}
+.sugg{border-radius:14px;padding:14px;background:color-mix(in oklab,var(--go) 14%,var(--surface));box-shadow:inset 0 0 0 1.5px color-mix(in oklab,var(--go) 40%,transparent)}
+.sugg p{margin:0 0 10px;font-size:14px}
+.sugg .chips{display:flex;gap:6px;flex-wrap:wrap}
+.sugg .chip{background:var(--surface)}
+.idea{display:flex;gap:12px;align-items:flex-start;padding:12px 0;border-bottom:1px solid var(--line)}
+.idea:last-child{border-bottom:0}
+.idea .grow{flex:1;min-width:0}
+.idea b{font-size:15px;overflow-wrap:anywhere}
+.idea .meta{display:flex;gap:6px;flex-wrap:wrap;margin-top:4px;align-items:center;font-size:12px;color:var(--muted)}
+.idea .note{font-size:13px;color:var(--muted);margin-top:4px;overflow-wrap:anywhere}
+.up{border:0;border-radius:12px;min-width:52px;padding:6px 8px;background:var(--sunk);font-weight:700;display:flex;flex-direction:column;align-items:center;line-height:1.1;font-size:15px}
+.up small{font-size:10px;font-weight:600;color:var(--muted)}
+.up[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink)}
+.up[aria-pressed="true"] small{color:var(--accent-ink)}
+.idea-form{margin-top:12px;padding:14px;border-radius:14px;background:var(--sunk);display:flex;flex-direction:column;gap:10px}
+.idea-form .input{background:var(--surface)}
+.radios{display:flex;gap:6px;flex-wrap:wrap}
+.radios label{position:relative}
+.radios input{position:absolute;opacity:0}
+.radios span{display:inline-block;padding:6px 11px;border-radius:999px;font-size:13px;font-weight:600;background:var(--surface);box-shadow:inset 0 0 0 1.5px var(--line);cursor:pointer}
+.radios input:checked + span{background:var(--ink);color:var(--surface);box-shadow:none}
+.radios input:focus-visible + span{outline:2.5px solid var(--accent);outline-offset:2px}
+.cmt{padding:10px 12px;border-radius:12px;background:var(--sunk);font-size:14px}
+.cmt .by{font-size:12px;font-weight:700;margin-bottom:2px;display:flex;justify-content:space-between;gap:8px}
+.cmt .by span{font-weight:500;color:var(--muted)}
+.cmt p{margin:0;overflow-wrap:anywhere;white-space:pre-wrap}
+.cmt-form{display:flex;gap:8px;margin-top:10px}
+.cmt-form .input{flex:1;min-width:0}
+.admin-box{border-radius:14px;padding:14px;box-shadow:inset 0 0 0 2px var(--accent);display:flex;flex-direction:column;gap:10px}
+.done-banner{border-radius:14px;padding:14px 16px;background:var(--done);color:var(--done-ink);display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.done-banner .grow{flex:1;min-width:0}
+.done-banner b{font-family:var(--f-display);font-size:20px}
+.done-banner .btn{background:var(--done-ink);color:var(--done)}
+.small-dlg{width:min(400px,calc(100% - 32px));border-radius:20px;padding:22px}
+.small-dlg h2{font-size:22px;margin-bottom:6px}
+
+footer.foot{padding-block:30px 40px;color:var(--muted);font-size:13px;display:flex;gap:14px;flex-wrap:wrap;justify-content:space-between;align-items:center}
+.linkish{border:0;background:none;padding:0;color:var(--muted);text-decoration:underline;text-underline-offset:3px;font-size:13px}
+
+#toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translate(-50%,20px);opacity:0;background:var(--ink);color:var(--surface);padding:10px 18px;border-radius:999px;font-weight:600;font-size:14px;z-index:100;transition:.25s;pointer-events:none;max-width:calc(100% - 32px);text-align:center}
+#toast.show{opacity:1;transform:translate(-50%,0)}
+.confetti{position:fixed;inset:0;pointer-events:none;z-index:200}
+.loading{min-height:60vh;display:grid;place-items:center;color:var(--muted)}
+
+@media (prefers-reduced-motion: reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
+</style>
+<script src="config.js"></script>
+</head>
+<body>
+<div id="app"><div class="loading">Chargement du calendrier…</div></div>
+
+<dialog id="sheet" class="sheet" aria-labelledby="sh-title">
+  <header class="sheet-head">
+    <div id="sh-head"></div>
+    <button class="icon-btn" type="button" data-act="close-sheet" aria-label="Fermer">✕</button>
+  </header>
+  <div class="sheet-body">
+    <div id="sh-done"></div>
+    <section class="block">
+      <h3>Et toi, tu es dispo ?</h3>
+      <div id="sh-vote" class="seg"></div>
+    </section>
+    <section class="block">
+      <h3>La bande</h3>
+      <div id="sh-people" class="who"></div>
+    </section>
+    <section class="block">
+      <h3>Où on va ?</h3>
+      <div id="sh-sugg"></div>
+      <div id="sh-ideas"></div>
+      <form id="idea-form" class="idea-form" autocomplete="off">
+        <div class="field">
+          <label for="idea-place">Proposer un lieu</label>
+          <input id="idea-place" class="input" maxlength="80" placeholder="Ex. : Gîte à Étretat, Annecy, chez Hugo…" required>
+        </div>
+        <div class="radios" role="radiogroup" aria-label="Type de lieu" id="idea-kinds"></div>
+        <div class="radios" role="radiogroup" aria-label="Budget" id="idea-budgets"></div>
+        <input id="idea-note" class="input" maxlength="200" placeholder="Un lien, une précision (facultatif)">
+        <button class="btn accent" type="submit">Ajouter l'idée</button>
+      </form>
+    </section>
+    <section class="block">
+      <h3>Le fil</h3>
+      <div id="sh-comments" class="stack" style="gap:8px"></div>
+      <form id="comment-form" class="cmt-form" autocomplete="off">
+        <input id="comment-text" class="input" maxlength="400" placeholder="Un mot pour la bande…" required aria-label="Commentaire">
+        <button class="btn" type="submit">Envoyer</button>
+      </form>
+    </section>
+    <section id="sh-admin"></section>
+  </div>
+</dialog>
+
+<dialog id="admin-dlg" class="small-dlg">
+  <form id="admin-form" class="form-stack">
+    <div>
+      <h2>Mode orga</h2>
+      <p class="muted" style="margin:0">Épingler des week-ends, valider une date et un lieu, gérer la bande.</p>
+    </div>
+    <div class="field">
+      <label for="admin-code">Code orga</label>
+      <input id="admin-code" class="input" type="password" autocomplete="off" required>
+    </div>
+    <div class="err" id="admin-err"></div>
+    <div class="row" style="justify-content:flex-end">
+      <button class="btn ghost" type="button" data-act="close-admin">Annuler</button>
+      <button class="btn accent" type="submit">Entrer</button>
+    </div>
+  </form>
+</dialog>
+
+<div id="toast" role="status" aria-live="polite"></div>
+
+<script type="module">
+/* ═══════════ Config ═══════════ */
+const CFG = Object.assign({
+  APP_NAME:"Nos week-ends", GROUP_ID:"les-copains", GROUP_CODE:"", ADMIN_CODE:"orga",
+  DEFAULT_THRESHOLD:4, firebase:{}
+}, window.WEEKEND_CONFIG || {});
+document.title = CFG.APP_NAME;
+
+const KINDS = ["Mer","Montagne","Campagne","Ville","Étranger","Chez quelqu'un"];
+const BUDGETS = ["€","€€","€€€"];
+const STATUS = {
+  yes:{sym:"✓",label:"Dispo",color:"var(--go)"},
+  maybe:{sym:"?",label:"Peut-être",color:"var(--maybe)"},
+  no:{sym:"✕",label:"Pas dispo",color:"var(--no)"}
+};
+
+/* ═══════════ Petits outils ═══════════ */
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const mkStore = area => ({
+  get(k){ try{ return window[area].getItem(k) }catch{ return null } },
+  set(k,v){ try{ window[area].setItem(k,v) }catch{} },
+  del(k){ try{ window[area].removeItem(k) }catch{} }
+});
+const LS = mkStore("localStorage"), SS = mkStore("sessionStorage");
+const K = { me:`wk:${CFG.GROUP_ID}:me`, code:`wk:${CFG.GROUP_ID}:code`, admin:`wk:${CFG.GROUP_ID}:admin`, tab:`wk:${CFG.GROUP_ID}:tab` };
+const rid = () => Math.random().toString(36).slice(2,10);
+const slug = s => s.normalize("NFD").replace(/[̀-ͯ]/g,"").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"").slice(0,24) || "ami";
+function hue(s){ let h=0; for(const c of s) h=(h*31+c.charCodeAt(0))%360; return h }
+function initials(n){ return n.split(/\s*&\s*|\s+/).filter(Boolean).slice(0,2).map(w=>w[0].toUpperCase()).join("") }
+function face(p, extra=""){
+  return `<span class="face ${p.weight===2?"x2":""} ${extra}"><i style="background:hsl(${hue(p.name)} 75% 80%)">${esc(initials(p.name))}</i>${esc(p.name)}</span>`;
+}
+let toastT;
+function toast(msg){ const t=$("#toast"); t.textContent=msg; t.classList.add("show"); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove("show"),2600) }
+
+/* ═══════════ Dates ═══════════ */
+const pad = n => String(n).padStart(2,"0");
+const keyOf = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+const fromKey = k => { const [y,m,d]=k.split("-").map(Number); return new Date(y,m-1,d) };
+const addDays = (d,n) => { const x=new Date(d); x.setDate(x.getDate()+n); return x };
+const MONTHS = ["janvier","février","mars","avril","mai","juin","juillet","août","septembre","octobre","novembre","décembre"];
+const MS = ["janv.","févr.","mars","avr.","mai","juin","juil.","août","sept.","oct.","nov.","déc."];
+const DAYS = ["dimanche","lundi","mardi","mercredi","jeudi","vendredi","samedi"];
+function isoWeek(d){
+  const t=new Date(Date.UTC(d.getFullYear(),d.getMonth(),d.getDate()));
+  const day=t.getUTCDay()||7; t.setUTCDate(t.getUTCDate()+4-day);
+  const y0=new Date(Date.UTC(t.getUTCFullYear(),0,1));
+  return Math.ceil(((t-y0)/864e5+1)/7);
+}
+function rangeLabel(a,b){
+  return a.getMonth()===b.getMonth() ? `${a.getDate()}–${b.getDate()} ${MS[a.getMonth()]}` : `${a.getDate()} ${MS[a.getMonth()]} – ${b.getDate()} ${MS[b.getMonth()]}`;
+}
+function easter(y){
+  const a=y%19,b=Math.floor(y/100),c=y%100,d=Math.floor(b/4),e=b%4,f=Math.floor((b+8)/25),g=Math.floor((b-f+1)/3),
+    h=(19*a+b-d-g+15)%30,i=Math.floor(c/4),k=c%4,l=(32+2*e+2*i-h-k)%7,m=Math.floor((a+11*h+22*l)/451),
+    mo=Math.floor((h+l-7*m+114)/31),da=((h+l-7*m+114)%31)+1;
+  return new Date(y,mo-1,da);
+}
+function holidaysOf(y){
+  const e=easter(y);
+  return [
+    [new Date(y,0,1),"Jour de l'an"],[addDays(e,1),"Lundi de Pâques"],[new Date(y,4,1),"Fête du Travail"],
+    [new Date(y,4,8),"Victoire 1945"],[addDays(e,39),"Ascension"],[addDays(e,50),"Lundi de Pentecôte"],
+    [new Date(y,6,14),"Fête nationale"],[new Date(y,7,15),"Assomption"],[new Date(y,10,1),"Toussaint"],
+    [new Date(y,10,11),"Armistice"],[new Date(y,11,25),"Noël"]
+  ].map(([date,name])=>({date,name}));
+}
+// Jour de la semaine → décalage vers le samedi du week-end concerné + type
+const HOL_KIND = {
+  6:{off:0, kind:"we",   label:"Tombe un samedi"},
+  0:{off:-1,kind:"we",   label:"Tombe un dimanche"},
+  1:{off:-2,kind:"long", label:"Week-end de 3 jours"},
+  5:{off:1, kind:"long", label:"Week-end de 3 jours"},
+  2:{off:-3,kind:"pont", label:"Pont : poser le lundi"},
+  4:{off:2, kind:"pont", label:"Pont : poser le vendredi"},
+  3:{off:3, kind:"mid",  label:"En milieu de semaine"}
+};
+
+function buildCalendar(){
+  const today=new Date(); today.setHours(0,0,0,0);
+  const sat=new Date(today); const d=sat.getDay();
+  if(d===0) sat.setDate(sat.getDate()-1); else sat.setDate(sat.getDate()+(6-d));
+  const end=addDays(today,365);
+  const list=[], byKey={};
+  for(let s=new Date(sat); s<end; s=addDays(s,7)){
+    const sun=addDays(s,1);
+    const w={key:keyOf(s), sat:new Date(s), sun, week:isoWeek(s), label:rangeLabel(s,sun), hol:[]};
+    list.push(w); byKey[w.key]=w;
+  }
+  const hols=[];
+  for(const y of [today.getFullYear(), today.getFullYear()+1]){
+    for(const h of holidaysOf(y)){
+      if(h.date<today || h.date>=end) continue;
+      const info=HOL_KIND[h.date.getDay()];
+      const wk=keyOf(addDays(h.date,info.off));
+      const item={...h, ...info, wk, key:keyOf(h.date)};
+      hols.push(item);
+      if(byKey[wk] && info.kind!=="mid") byKey[wk].hol.push(item);
+    }
+  }
+  hols.sort((a,b)=>a.date-b.date);
+  return {list, byKey, hols};
+}
+const CAL = buildCalendar();
+
+/* ═══════════ Stockage : Firebase ou démo locale ═══════════ */
+function localStore(){
+  const KEY=`wk:${CFG.GROUP_ID}:demo-db`;
+  let data; try{ data=JSON.parse(LS.get(KEY)) }catch{}
+  if(!data) data=seedDemo();
+  const L={};
+  const save=()=>LS.set(KEY,JSON.stringify(data));
+  const list=c=>Object.entries(data[c]||{}).map(([id,v])=>({id,...v}));
+  const emit=c=>(L[c]||[]).forEach(cb=>cb(list(c)));
+  const ensure=(c,id)=>{ data[c]??={}; data[c][id]??={}; return data[c][id] };
+  save();
+  return {
+    demo:true,
+    watch(c,cb){ (L[c]??=[]).push(cb); cb(list(c)) },
+    async set(c,id,obj){ Object.assign(ensure(c,id),obj); save(); emit(c) },
+    async add(c,obj){ const id=rid(); data[c]??={}; data[c][id]=obj; save(); emit(c); return id },
+    async del(c,id){ if(data[c]) delete data[c][id]; save(); emit(c) },
+    async vote(pid,wk,st){ const p=ensure("people",pid); p.votes??={}; if(st) p.votes[wk]=st; else delete p.votes[wk]; save(); emit("people") },
+    async toggle(c,id,field,val,on){ const o=ensure(c,id); const a=new Set(o[field]||[]); on?a.add(val):a.delete(val); o[field]=[...a]; save(); emit(c) },
+    async reset(){ data=seedDemo(); save(); Object.keys(L).forEach(emit) }
+  };
+}
+function seedDemo(){
+  let s=7; const rnd=()=>(s=(s*16807)%2147483647)/2147483647;
+  const people={};
+  const mk=(name,names,weight,bias)=>{
+    const votes={};
+    CAL.list.forEach((w,i)=>{ if(rnd()<.18) return; const r=rnd()+bias; votes[w.key]= r>.95?"yes":r>.7?"maybe":r>.45?"no":"yes" });
+    people[slug(name)+"-demo"]={name,names,type:weight===2?"couple":"solo",weight,votes,at:Date.now()};
+  };
+  mk("Camille",["Camille"],1,.1); mk("Léa & Tom",["Léa","Tom"],2,0); mk("Hugo",["Hugo"],1,.2);
+  mk("Inès & Sam",["Inès","Sam"],2,-.1); mk("Jules",["Jules"],1,0);
+  people["nora-demo"]={name:"Nora",names:["Nora"],type:"solo",weight:1,votes:{},at:Date.now()};
+  const w3=CAL.list[3]?.key, w8=CAL.list[8]?.key, w20=CAL.list[20]?.key;
+  Object.values(people).slice(0,5).forEach(p=>{ if(w8) p.votes[w8]="yes"; if(w3) p.votes[w3]="yes" });
+  return {
+    people,
+    weekends:{ ...(w3?{[w3]:{validated:true,place:"Gîte à Étretat",pinned:true}}:{}), ...(w8?{[w8]:{pinned:true}}:{}), ...(w20?{[w20]:{pinned:true}}:{}) },
+    ideas:{
+      i1:{wk:w8,place:"Chalet à Annecy",kind:"Montagne",budget:"€€",note:"Lac + rando, 2h de train",by:"hugo-demo",byName:"Hugo",voters:["hugo-demo","camille-demo"],at:Date.now()-5e6},
+      i2:{wk:w8,place:"Maison à Arcachon",kind:"Mer",budget:"€€€",note:"",by:"camille-demo",byName:"Camille",voters:["lea-tom-demo"],at:Date.now()-4e6}
+    },
+    comments:{ c1:{wk:w8,by:"jules-demo",byName:"Jules",text:"Je peux prendre la voiture, 4 places dispo !",at:Date.now()-3e6} },
+    settings:{}
+  };
+}
+async function firebaseStore(fc){
+  const V="10.12.2";
+  const {initializeApp}=await import(`https://www.gstatic.com/firebasejs/${V}/firebase-app.js`);
+  const F=await import(`https://www.gstatic.com/firebasejs/${V}/firebase-firestore.js`);
+  const db=F.getFirestore(initializeApp(fc));
+  const col=c=>F.collection(db,"groups",CFG.GROUP_ID,c);
+  const ref=(c,id)=>F.doc(db,"groups",CFG.GROUP_ID,c,id);
+  const fail=e=>{ console.error(e); toast("Enregistrement impossible : vérifie la connexion et les règles Firebase."); throw e };
+  return {
+    demo:false,
+    watch(c,cb){ F.onSnapshot(col(c), snap=>cb(snap.docs.map(d=>({id:d.id,...d.data()}))), e=>{ console.error(e); toast("Lecture de la base impossible : vérifie config.js et les règles Firebase.") }) },
+    set:(c,id,obj)=>F.setDoc(ref(c,id),obj,{merge:true}).catch(fail),
+    add:(c,obj)=>F.addDoc(col(c),obj).then(r=>r.id).catch(fail),
+    del:(c,id)=>F.deleteDoc(ref(c,id)).catch(fail),
+    vote:(pid,wk,st)=>F.updateDoc(ref("people",pid),new F.FieldPath("votes",wk),st||F.deleteField()).catch(fail),
+    toggle:(c,id,field,val,on)=>F.updateDoc(ref(c,id),{[field]:on?F.arrayUnion(val):F.arrayRemove(val)}).catch(fail)
+  };
+}
+
+/* ═══════════ État ═══════════ */
+const S = {
+  people:[], weekends:{}, ideas:[], comments:[], settings:{},
+  loaded:new Set(), me:LS.get(K.me), admin:SS.get(K.admin)==="1",
+  tab:LS.get(K.tab)||"cal", filter:"all", open:null, screen:null
+};
+let store;
+const meP = () => S.people.find(p=>p.id===S.me);
+const totalW = () => S.people.reduce((a,p)=>a+(p.weight||1),0);
+const threshold = () => Number(S.settings.threshold) || CFG.DEFAULT_THRESHOLD || 4;
+function stats(key){
+  const r={yes:[],maybe:[],no:[],none:[],yesW:0,maybeW:0,noW:0,noneW:0};
+  for(const p of S.people){ const st=p.votes?.[key]||"none"; r[st].push(p); r[st+"W"]+=p.weight||1 }
+  const t=Math.max(totalW(),1);
+  r.heat=Math.round(Math.min(1,(r.yesW+r.maybeW*.4)/t)*100);
+  r.score=r.yesW+r.maybeW*.5;
+  return r;
+}
+const meta = k => S.weekends[k]||{};
+
+/* ═══════════ Suggestions de destinations selon le nombre de dispo ═══════════ */
+function suggestions(n, w){
+  const m=w.sat.getMonth();
+  let base;
+  if(n<=3) base={t:"Petit comité",items:[["City-break en train","Ville"],["Gîte cosy au calme","Campagne"],["Week-end rando","Montagne"]]};
+  else if(n<=6) base={t:"La bande idéale",items:[["Maison avec jardin","Campagne"],["Appart en bord de mer","Mer"],["Chalet","Montagne"],["Road-trip","Campagne"]]};
+  else if(n<=10) base={t:"Grosse équipe",items:[["Grande maison avec piscine","Campagne"],["Gîte de groupe","Campagne"],["Villa au bord de l'eau","Mer"]]};
+  else base={t:"Tout le monde est là",items:[["Domaine à louer","Campagne"],["Glamping entre nous","Campagne"],["Grand gîte de groupe","Montagne"]]};
+  const items=[...base.items];
+  if([11,0,1,2].includes(m)) items.unshift(["Week-end au ski","Montagne"]);
+  if([5,6,7].includes(m)) items.unshift(["Plage et barbecue","Mer"]);
+  if([8,9].includes(m)) items.unshift(["Vendanges et vignobles","Campagne"]);
+  if(w.hol.some(h=>h.kind!=="we")) items.push(["Escapade à l'étranger (long week-end)","Étranger"]);
+  return {title:base.t, items:items.slice(0,5)};
+}
+
+/* ═══════════ Rendu ═══════════ */
+let queued=false;
+const schedule = () => { if(queued) return; queued=true; setTimeout(()=>{ queued=false; render() },0) };
+const app = $("#app");
+
+function render(){
+  if(!["people","weekends","settings"].every(c=>S.loaded.has(c))) return;
+  if(!meP()){ renderOnboard(); return }
+  S.screen="main";
+  const y=scrollY;
+  app.innerHTML = header() + `<main class="wrap">${view()}</main>` + footer();
+  scrollTo(0,y);
+  if(S.open) renderSheet();
+}
+
+function header(){
+  const me=meP();
+  const tabs=[["cal","Calendrier"],["top","Les plus chauds"],["feries","Jours fériés"],["missing","Qui manque à l'appel"]];
+  if(S.admin) tabs.push(["orga","Orga"]);
+  const missingN=S.people.filter(p=>!Object.keys(p.votes||{}).length).length;
+  return `
+  ${store.demo?`<div class="demo"><div class="wrap"><b>Mode démo.</b> Les données restent dans ce navigateur et la bande est fictive. Renseigne Firebase dans <code>config.js</code> pour partager le site.</div></div>`:""}
+  <header class="top"><div class="wrap">
+    <div class="top-row">
+      <div class="brand"><span class="logo" aria-hidden="true">✦</span><span class="t">${esc(CFG.APP_NAME)}</span></div>
+      <div class="me"><span class="muted">Salut</span> <b>${esc(me.name)}</b>
+        <button class="btn ghost sm" data-act="logout" title="Changer de personne">Changer</button></div>
+    </div>
+    <nav class="tabs" role="tablist">
+      ${tabs.map(([id,l])=>`<button class="tab" role="tab" aria-selected="${S.tab===id}" data-act="tab" data-tab="${id}">${l}${id==="missing"&&missingN?`<span class="n">${missingN}</span>`:""}</button>`).join("")}
+    </nav>
+  </div></header>`;
+}
+function footer(){
+  return `<footer class="wrap foot">
+    <span>${S.people.length} inscrits · ${totalW()} personnes · ${CAL.list.length} week-ends sur 12 mois</span>
+    ${S.admin?`<button class="linkish" data-act="admin-out">Quitter le mode orga</button>`:`<button class="linkish" data-act="admin-in">Mode orga</button>`}
+  </footer>`;
+}
+function view(){
+  if(S.tab==="top") return viewTop();
+  if(S.tab==="feries") return viewFeries();
+  if(S.tab==="missing") return viewMissing();
+  if(S.tab==="orga" && S.admin) return viewOrga();
+  return viewCal();
+}
+
+/* — Calendrier — */
+function viewCal(){
+  const me=meP(), t=threshold();
+  const answered=CAL.list.filter(w=>me.votes?.[w.key]).length;
+  const F=[["all","Tous"],["todo","À cocher"],["hot",`Jouables (${t}+)`],["pin","Épinglés"],["hol","Avec férié"]];
+  const keep=w=>{
+    const s=stats(w.key), m=meta(w.key);
+    switch(S.filter){
+      case "todo": return !me.votes?.[w.key];
+      case "hot": return s.yesW>=t || m.validated;
+      case "pin": return m.pinned || m.validated;
+      case "hol": return w.hol.length>0;
+      default: return true;
+    }
+  };
+  const groups=new Map();
+  for(const w of CAL.list.filter(keep)){
+    const g=`${w.sat.getFullYear()}-${w.sat.getMonth()}`;
+    if(!groups.has(g)) groups.set(g,{label:`${MONTHS[w.sat.getMonth()]} ${w.sat.getFullYear()}`,items:[]});
+    groups.get(g).items.push(w);
+  }
+  return `
+  <section class="intro">
+    <div>
+      <h1>On se cale quel week-end ?</h1>
+      <p>Coche tes dispos sur chaque week-end : <b>✓</b> dispo, <b>?</b> peut-être, <b>✕</b> pas dispo. Plus un billet est vert, plus il y a de monde. Tu as répondu à <b class="num">${answered}/${CAL.list.length}</b> week-ends.</p>
+    </div>
+    <div class="stack" style="gap:10px;align-items:flex-end">
+      <div class="filters">${F.map(([id,l])=>`<button class="chip" aria-pressed="${S.filter===id}" data-act="filter" data-f="${id}">${l}</button>`).join("")}</div>
+      <div class="legend"><span>Personne</span><span class="scale">${[0,25,50,75,100].map(h=>`<i style="background:color-mix(in oklab,var(--go) calc(${h}% * var(--hm)),var(--surface))"></i>`).join("")}</span><span>Tout le monde</span></div>
+    </div>
+  </section>
+  ${groups.size?[...groups.values()].map(g=>`
+    <section class="month">
+      <div class="month-head"><h2>${g.label}</h2><span class="muted num">${g.items.length} week-end${g.items.length>1?"s":""}</span></div>
+      <div class="grid">${g.items.map(tile).join("")}</div>
+    </section>`).join(""):`<div class="empty">Aucun week-end ne correspond à ce filtre pour l'instant.</div>`}`;
+}
+function tile(w){
+  const s=stats(w.key), m=meta(w.key), mine=meP().votes?.[w.key], t=threshold(), tw=Math.max(totalW(),1);
+  const cls=["tile", m.validated&&"is-done", m.pinned&&!m.validated&&"is-pin"].filter(Boolean).join(" ");
+  const badges=[];
+  if(m.validated) badges.push(`<span class="pill done">Calé${m.place?` · ${esc(m.place)}`:""}</span>`);
+  else if(s.yesW>=t) badges.push(`<span class="pill go">Jouable</span>`);
+  if(m.pinned && !m.validated) badges.push(`<span class="pill pin">★ Proposé</span>`);
+  for(const h of w.hol) badges.push(`<span class="pill fer" title="${esc(h.name)} · ${esc(h.label)}">${h.kind==="we"?"Férié":h.kind==="long"?"3 jours":"Pont"}</span>`);
+  const nIdeas=S.ideas.filter(i=>i.wk===w.key).length;
+  if(nIdeas && !m.validated) badges.push(`<span class="pill">${nIdeas} idée${nIdeas>1?"s":""}</span>`);
+  return `<article class="${cls}" style="--h:${s.heat}">
+    <button class="tile-main" data-act="open" data-k="${w.key}" aria-label="Week-end du ${w.label}, ${s.yesW} dispo">
+      <span class="tile-top"><span class="wk">SEMAINE ${w.week}</span></span>
+      <span class="dates">${w.label}</span>
+      <span class="count num"><b>${s.yesW}</b> dispo${s.maybeW?` · ${s.maybeW} peut-être`:""}</span>
+      <span class="badges">${badges.join("")}</span>
+      <span class="bar" aria-hidden="true"><i style="width:${s.yesW/tw*100}%;background:var(--go)"></i><i style="width:${s.maybeW/tw*100}%;background:var(--maybe)"></i><i style="width:${s.noW/tw*100}%;background:var(--no)"></i></span>
+    </button>
+    <div class="my" role="group" aria-label="Ma dispo pour le ${w.label}">
+      ${Object.entries(STATUS).map(([k,v])=>`<button class="v ${k}" aria-pressed="${mine===k}" data-act="vote" data-k="${w.key}" data-s="${k}" title="${v.label}" aria-label="${v.label}">${v.sym}</button>`).join("")}
+    </div>
+  </article>`;
+}
+
+/* — Les plus chauds — */
+function viewTop(){
+  const t=threshold();
+  const done=CAL.list.filter(w=>meta(w.key).validated);
+  const pinned=CAL.list.filter(w=>meta(w.key).pinned && !meta(w.key).validated);
+  const ranked=CAL.list.filter(w=>!meta(w.key).validated).map(w=>({w,s:stats(w.key)})).filter(x=>x.s.yesW>0).sort((a,b)=>b.s.score-a.s.score||a.w.sat-b.w.sat).slice(0,10);
+  const row=(w,s,i)=>{
+    const sg=s.yesW>=2?suggestions(s.yesW,w):null;
+    const ideas=S.ideas.filter(x=>x.wk===w.key).sort((a,b)=>(b.voters?.length||0)-(a.voters?.length||0));
+    return `<div class="card row">
+      ${i!=null?`<span class="rank num">${i+1}</span>`:""}
+      <div class="grow">
+        <div class="big-date">${w.label} <span class="muted" style="font-size:13px;font-family:var(--f-body);font-weight:500">· semaine ${w.week}</span></div>
+        <div class="row" style="gap:6px;margin-top:6px">
+          ${s.yesW>=t?`<span class="pill go">Jouable</span>`:`<span class="pill">Encore ${t-s.yesW} pour atteindre ${t}</span>`}
+          ${w.hol.map(h=>`<span class="pill fer">${esc(h.name)}</span>`).join("")}
+          ${ideas[0]?`<span class="pill">Idée en tête : ${esc(ideas[0].place)}</span>`:sg?`<span class="pill">${esc(sg.title)} → ${esc(sg.items[0][0])}</span>`:""}
+        </div>
+      </div>
+      <div class="score num"><b>${s.yesW}</b><span class="muted">dispo${s.maybeW?` +${s.maybeW} ?`:""}</span></div>
+      <button class="btn ghost sm" data-act="open" data-k="${w.key}">Voir et proposer un lieu</button>
+    </div>`;
+  };
+  return `
+  <section class="intro"><div>
+    <h1>Les week-ends qui se dessinent</h1>
+    <p>Classés par nombre de dispo (un « peut-être » compte pour moitié). Un week-end devient jouable à partir de <b>${t} personnes</b> dispo : c'est le moment d'y proposer des lieux.</p>
+  </div></section>
+  ${done.length?`<section class="section"><h2>C'est calé <span class="pill done">${done.length}</span></h2>
+    <div class="stack">${done.map(w=>{const m=meta(w.key),s=stats(w.key);return `<div class="done-banner">
+      <div class="grow"><b>${w.label}</b><div>${m.place?esc(m.place)+" · ":""}${s.yesW} dispo</div></div>
+      <button class="btn sm" data-act="ics" data-k="${w.key}">Ajouter à mon agenda</button>
+      <button class="btn sm" style="background:transparent;color:var(--done-ink);box-shadow:inset 0 0 0 1.5px var(--done-ink)" data-act="open" data-k="${w.key}">Détails</button></div>`}).join("")}
+    ${done.length>1?`<div><button class="btn ghost sm" data-act="ics-all">Tout ajouter à l'agenda (${done.length})</button></div>`:""}
+    </div></section>`:""}
+  ${pinned.length?`<section class="section"><h2>Proposés par l'orga <span class="pill pin">★ ${pinned.length}</span></h2>
+    <div class="stack">${pinned.map(w=>row(w,stats(w.key))).join("")}</div></section>`:""}
+  <section class="section"><h2>Le top 10</h2>
+    ${ranked.length?`<div class="stack">${ranked.map((x,i)=>row(x.w,x.s,i)).join("")}</div>`:`<div class="empty">Personne n'a encore coché de dispo. Ouvre le calendrier pour commencer.</div>`}
+  </section>`;
+}
+
+/* — Jours fériés — */
+function viewFeries(){
+  const t=threshold();
+  return `
+  <section class="intro"><div>
+    <h1>Les jours fériés</h1>
+    <p>Les ${CAL.hols.length} jours fériés des 12 prochains mois et le week-end qui va avec. Un lundi ou un vendredi férié donne un week-end de 3 jours ; un mardi ou un jeudi, un pont.</p>
+  </div></section>
+  <section class="stack" style="padding-bottom:10px">
+  ${CAL.hols.map(h=>{
+    const w=CAL.byKey[h.wk], s=w?stats(w.key):null, m=w?meta(w.key):{};
+    return `<div class="card hol">
+      <div class="hol-date"><div class="m">${DAYS[h.date.getDay()].slice(0,3)}.</div><div class="d num">${h.date.getDate()}</div><div class="m">${MS[h.date.getMonth()]}</div></div>
+      <div style="min-width:0">
+        <h3>${esc(h.name)}</h3>
+        <div class="row" style="gap:6px;margin-top:6px">
+          <span class="pill ${h.kind==="mid"?"":"fer"}">${esc(h.label)}</span>
+          ${w&&h.kind!=="mid"?`<span class="pill ${s.yesW>=t?"go":""}">Week-end du ${w.label} · ${s.yesW} dispo</span>`:""}
+          ${m.validated?`<span class="pill done">Calé</span>`:""}
+        </div>
+      </div>
+      ${w&&h.kind!=="mid"?`<button class="btn ghost sm" data-act="open" data-k="${w.key}">Voir le week-end</button>`:`<span></span>`}
+    </div>`}).join("")}
+  </section>`;
+}
+
+/* — Qui manque à l'appel — */
+function viewMissing(){
+  const n=CAL.list.length;
+  const rows=S.people.map(p=>({p,c:CAL.list.filter(w=>p.votes?.[w.key]).length})).sort((a,b)=>a.c-b.c||a.p.name.localeCompare(b.p.name));
+  const zero=rows.filter(r=>r.c===0), full=rows.filter(r=>r.c===n).length;
+  const pinnedOpen=CAL.list.filter(w=>meta(w.key).pinned&&!meta(w.key).validated);
+  return `
+  <section class="intro">
+    <div><h1>Qui manque à l'appel ?</h1>
+    <p><b class="num">${full}</b> sur ${S.people.length} ont rempli tout le calendrier. ${zero.length?`<b class="num">${zero.length}</b> n'ont encore rien coché.`:"Tout le monde a commencé à répondre."}</p></div>
+    ${rows.some(r=>r.c<n)?`<button class="btn accent" data-act="remind">Copier un rappel pour le groupe</button>`:""}
+  </section>
+  <section class="stack" style="padding-bottom:10px">
+    ${rows.map(({p,c})=>`<div class="card row">
+      <div style="min-width:150px">${face(p)}</div>
+      <div class="progress" role="progressbar" aria-valuenow="${c}" aria-valuemax="${n}" aria-label="Avancement de ${esc(p.name)}"><i style="width:${c/n*100}%"></i></div>
+      <span class="num" style="min-width:70px;text-align:right">${c}/${n}</span>
+      ${c===0?`<span class="pill" style="background:color-mix(in oklab,var(--no) 22%,transparent);color:var(--ink)">Rien coché</span>`:c===n?`<span class="pill go">Complet</span>`:""}
+    </div>`).join("")}
+  </section>
+  ${pinnedOpen.length?`<section class="section" style="padding-top:20px"><h2>Sur les week-ends proposés</h2><div class="stack">
+    ${pinnedOpen.map(w=>{const s=stats(w.key);return `<div class="card row"><div class="grow"><div class="big-date">${w.label}</div>
+      <div class="faces" style="margin-top:8px">${s.none.length?s.none.map(p=>face(p)).join(""):`<span class="muted">Tout le monde a répondu.</span>`}</div></div>
+      <button class="btn ghost sm" data-act="open" data-k="${w.key}">Ouvrir</button></div>`}).join("")}
+  </div></section>`:""}`;
+}
+
+/* — Orga — */
+function viewOrga(){
+  return `
+  <section class="intro"><div><h1>Espace orga</h1>
+    <p>Pour épingler ou valider un week-end, ouvre-le depuis le calendrier : les actions orga apparaissent en bas de la fiche.</p></div></section>
+  <section class="section"><div class="card form-stack" style="max-width:520px">
+    <form id="threshold-form" class="form-stack">
+      <div class="field"><label for="threshold">Un week-end est « jouable » à partir de combien de personnes dispo ?</label>
+      <div class="row"><input id="threshold" class="input" type="number" min="1" max="60" value="${threshold()}" style="max-width:110px"><button class="btn" type="submit">Enregistrer</button></div></div>
+    </form>
+  </div></section>
+  <section class="section"><h2>La bande (${S.people.length})</h2><div class="stack">
+    ${S.people.slice().sort((a,b)=>a.name.localeCompare(b.name)).map(p=>`<div class="card row">
+      <div class="grow">${face(p)} <span class="muted" style="font-size:13px;margin-left:6px">${p.type==="couple"?"Couple":"Solo"} · ${Object.keys(p.votes||{}).length} réponses</span></div>
+      ${p.id===S.me?`<span class="pill">C'est toi</span>`:`<button class="btn danger sm" data-act="del-person" data-id="${p.id}">Retirer</button>`}
+    </div>`).join("")}
+  </div></section>
+  ${store.demo?`<section class="section"><button class="btn ghost" data-act="reset-demo">Réinitialiser les données de démo</button></section>`:""}`;
+}
+
+/* — Accueil / inscription — */
+function renderOnboard(){
+  const others=S.people.slice().sort((a,b)=>a.name.localeCompare(b.name));
+  const needCode=CFG.GROUP_CODE && LS.get(K.code)!==CFG.GROUP_CODE;
+  if(S.screen==="onboard"){ // ne pas effacer ce qui est en cours de saisie
+    const box=$("#already-list"); if(box) box.innerHTML=alreadyList(others);
+    return;
+  }
+  S.screen="onboard";
+  app.innerHTML=`
+  ${store.demo?`<div class="demo"><div class="wrap"><b>Mode démo.</b> Données locales et bande fictive, pour essayer avant de brancher Firebase.</div></div>`:""}
+  <div class="onboard wrap"><div class="ob">
+    <div class="eyebrow">${esc(CFG.APP_NAME)}</div>
+    <h1 style="margin-top:10px">Un an de <em>week&#8209;ends</em> à se caler.</h1>
+    <p class="lead">Inscris-toi, coche tes dispos week-end par week-end, et on voit ensemble où et quand partir.</p>
+    <form id="join-form" class="form-stack" autocomplete="off">
+      ${needCode?`<div class="field"><label for="group-code">Code du groupe</label><input id="group-code" class="input" required placeholder="Donné dans le groupe WhatsApp"></div>`:""}
+      <div class="choice" role="radiogroup" aria-label="Je viens">
+        <label><input type="radio" name="type" value="solo" id="type-solo" checked><span class="opt"><span class="ico" aria-hidden="true">🙋</span><b>En solo</b><small>Je compte pour 1</small></span></label>
+        <label><input type="radio" name="type" value="couple" id="type-couple"><span class="opt"><span class="ico" aria-hidden="true">👫</span><b>En couple</b><small>On compte pour 2</small></span></label>
+      </div>
+      <div class="two" id="names">
+        <div class="field"><label for="name1">Ton prénom</label><input id="name1" class="input" required maxlength="24" placeholder="Prénom"></div>
+        <div class="field" id="name2-wrap" hidden><label for="name2">Prénom de ta moitié</label><input id="name2" class="input" maxlength="24" placeholder="Prénom"></div>
+      </div>
+      <div class="err" id="join-err"></div>
+      <button class="btn accent" type="submit" style="padding:14px 22px;font-size:16px">C'est parti</button>
+    </form>
+    <div class="already" ${others.length?"":"hidden"} id="already">
+      <div class="eyebrow">Déjà inscrit ? Clique sur ton nom</div>
+      <div class="faces" id="already-list">${alreadyList(others)}</div>
+    </div>
+  </div></div>`;
+}
+function alreadyList(others){
+  $("#already")?.toggleAttribute("hidden",!others.length);
+  return others.map(p=>`<button type="button" class="face" data-act="login" data-id="${p.id}"><i style="background:hsl(${hue(p.name)} 75% 80%)">${esc(initials(p.name))}</i>${esc(p.name)}</button>`).join("");
+}
+function codeOk(){
+  if(!CFG.GROUP_CODE || LS.get(K.code)===CFG.GROUP_CODE) return true;
+  const v=$("#group-code")?.value.trim();
+  if(v && v.toLowerCase()===CFG.GROUP_CODE.toLowerCase()){ LS.set(K.code,CFG.GROUP_CODE); return true }
+  $("#join-err").textContent="Code du groupe incorrect. Demande-le à l'orga.";
+  return false;
+}
+function setMe(id){ S.me=id; LS.set(K.me,id); S.screen=null; schedule() }
+
+/* — Fiche d'un week-end (bottom sheet) — */
+const sheet=$("#sheet");
+function buildSheetForms(){
+  $("#idea-kinds").innerHTML=KINDS.map((k,i)=>`<label><input type="radio" name="kind" value="${esc(k)}" id="kind-${i}" ${i===2?"checked":""}><span>${esc(k)}</span></label>`).join("");
+  $("#idea-budgets").innerHTML=BUDGETS.map((b,i)=>`<label><input type="radio" name="budget" value="${b}" id="budget-${i}" ${i===1?"checked":""}><span>${b}</span></label>`).join("");
+}
+buildSheetForms();
+function openSheet(k){ S.open=k; renderSheet(); if(!sheet.open) sheet.showModal(); sheet.querySelector(".sheet-body").scrollTop=0 }
+sheet.addEventListener("close",()=>{ S.open=null });
+sheet.addEventListener("click",e=>{ if(e.target===sheet) sheet.close() });
+const safeSet=(sel,html)=>{ const el=$(sel); if(!el.contains(document.activeElement)||!/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)) el.innerHTML=html };
+
+function renderSheet(){
+  const w=CAL.byKey[S.open]; if(!w) return;
+  const s=stats(w.key), m=meta(w.key), me=meP(), mine=me.votes?.[w.key], t=threshold();
+  $("#sh-head").innerHTML=`
+    <div class="eyebrow">Semaine ${w.week} · ${DAYS[6]} ${w.sat.getDate()} et ${DAYS[0]} ${w.sun.getDate()} ${MONTHS[w.sun.getMonth()]}</div>
+    <h2 id="sh-title" style="margin-top:4px">${w.label}</h2>
+    <div class="row" style="gap:6px;margin-top:8px">
+      <span class="pill ${s.yesW>=t?"go":""} num">${s.yesW} dispo · ${s.maybeW} peut-être · ${s.noW} non</span>
+      ${m.pinned&&!m.validated?`<span class="pill pin">★ Proposé par l'orga</span>`:""}
+      ${w.hol.map(h=>`<span class="pill fer">${esc(h.name)} (${DAYS[h.date.getDay()]}) · ${esc(h.label)}</span>`).join("")}
+    </div>`;
+  $("#sh-done").innerHTML=m.validated?`<div class="done-banner"><div class="grow"><div class="eyebrow" style="color:var(--done-ink)">C'est calé !</div><b>${esc(m.place||"Lieu à préciser")}</b></div><button class="btn sm" data-act="ics" data-k="${w.key}">Ajouter à mon agenda</button></div>`:"";
+  $("#sh-vote").innerHTML=Object.entries(STATUS).map(([k,v])=>`<button class="v ${k}" aria-pressed="${mine===k}" data-act="vote" data-k="${w.key}" data-s="${k}">${v.sym} ${v.label}</button>`).join("");
+  $("#sh-people").innerHTML=[["yes","Dispo"],["maybe","Peut-être"],["no","Pas dispo"],["none","Sans réponse"]].map(([k,l])=>`
+    <div class="who-row"><div class="lbl"><i style="background:${k==="none"?"var(--line)":STATUS[k].color}"></i>${l} <span class="muted num">${s[k+"W"]}</span></div>
+    <div class="faces">${s[k].length?s[k].map(p=>face(p)).join(""):`<span class="muted" style="font-size:13px;padding-top:4px">Personne</span>`}</div></div>`).join("");
+  const sg=suggestions(Math.max(s.yesW,2),w);
+  $("#sh-sugg").innerHTML = m.validated ? "" : s.yesW>=t
+    ? `<div class="sugg"><p><b>${s.yesW} dispo, ça peut se faire.</b> ${esc(sg.title)} : quelques pistes pour lancer les idées.</p><div class="chips">${sg.items.map(([n,k])=>`<button class="chip" type="button" data-act="sugg" data-n="${esc(n)}" data-kind="${esc(k)}">${esc(n)}</button>`).join("")}</div></div>`
+    : `<p class="muted" style="margin:0 0 4px;font-size:14px">Encore ${t-s.yesW} dispo et ce week-end devient jouable. Tu peux déjà proposer un lieu.</p>`;
+  const ideas=S.ideas.filter(i=>i.wk===w.key).sort((a,b)=>(b.voters?.length||0)-(a.voters?.length||0)||a.at-b.at);
+  safeSet("#sh-ideas", ideas.length?ideas.map(i=>{
+    const on=(i.voters||[]).includes(S.me);
+    return `<div class="idea">
+      <button class="up num" aria-pressed="${on}" data-act="upvote" data-id="${i.id}" aria-label="Voter pour ${esc(i.place)}">${(i.voters||[]).length}<small>${on?"Moi aussi":"+1"}</small></button>
+      <div class="grow"><b>${esc(i.place)}</b>
+        <div class="meta"><span class="pill">${esc(i.kind||"")}</span><span class="pill">${esc(i.budget||"")}</span><span>par ${esc(i.byName||"?")}</span>
+        ${i.by===S.me||S.admin?`<button class="linkish" data-act="del-idea" data-id="${i.id}">Supprimer</button>`:""}
+        ${S.admin&&!m.validated?`<button class="linkish" data-act="validate-idea" data-id="${i.id}">Valider ce lieu</button>`:""}</div>
+        ${i.note?`<div class="note">${esc(i.note)}</div>`:""}
+      </div></div>`}).join(""):`<p class="muted" style="font-size:14px;margin:8px 0 0">Aucune idée pour l'instant.</p>`);
+  const cm=S.comments.filter(c=>c.wk===w.key).sort((a,b)=>a.at-b.at);
+  $("#sh-comments").innerHTML=cm.length?cm.map(c=>`<div class="cmt"><div class="by">${esc(c.byName)} <span>${new Date(c.at).toLocaleDateString("fr-FR",{day:"numeric",month:"short"})}${c.by===S.me||S.admin?` · <button class="linkish" style="font-size:12px" data-act="del-cmt" data-id="${c.id}">suppr.</button>`:""}</span></div><p>${esc(c.text)}</p></div>`).join(""):`<p class="muted" style="font-size:14px;margin:0">Pas encore de message.</p>`;
+  safeSet("#sh-admin", S.admin?`<div class="admin-box">
+    <h3 style="margin:0">Actions orga</h3>
+    <div class="row" style="gap:8px">
+      <button class="btn ghost sm" data-act="pin" data-k="${w.key}">${m.pinned?"Retirer l'épingle":"★ Épingler ce week-end"}</button>
+      ${m.validated?`<button class="btn danger sm" data-act="unvalidate" data-k="${w.key}">Annuler la validation</button>`:""}
+    </div>
+    ${m.validated?"":`<form id="validate-form" class="row" style="gap:8px">
+      <input id="validate-place" class="input" style="flex:1;min-width:160px" maxlength="80" placeholder="Lieu retenu" value="${esc(ideas[0]?.place||"")}">
+      <button class="btn done" type="submit">Valider le week-end</button></form>`}
+  </div>`:"");
+}
+
+/* ═══════════ Agenda (.ics) ═══════════ */
+function icsEvent(w){
+  const m=meta(w.key);
+  let start=w.sat, end=addDays(w.sun,1);
+  for(const h of w.hol){ if(h.kind==="long"){ if(h.date<start) start=h.date; if(h.date>=end) end=addDays(h.date,1) } }
+  const d=x=>`${x.getFullYear()}${pad(x.getMonth()+1)}${pad(x.getDate())}`;
+  const txt=s=>String(s).replace(/\\/g,"\\\\").replace(/[,;]/g,c=>"\\"+c).replace(/\n/g,"\\n");
+  const s=stats(w.key);
+  const stamp=new Date().toISOString().replace(/[-:]/g,"").replace(/\.\d+/,"");
+  return ["BEGIN:VEVENT",`UID:${w.key}-${CFG.GROUP_ID}@weekends`,`DTSTAMP:${stamp}`,`DTSTART;VALUE=DATE:${d(start)}`,`DTEND;VALUE=DATE:${d(end)}`,
+    `SUMMARY:${txt(`Week-end entre amis${m.place?` · ${m.place}`:""}`)}`, m.place?`LOCATION:${txt(m.place)}`:null,
+    `DESCRIPTION:${txt(`Avec : ${s.yes.map(p=>p.name).join(", ")}\n${location.href.split("#")[0]}`)}`,"END:VEVENT"].filter(Boolean).join("\r\n");
+}
+function downloadIcs(weeks, name){
+  const body=["BEGIN:VCALENDAR","VERSION:2.0","PRODID:-//Nos week-ends//FR","CALSCALE:GREGORIAN",...weeks.map(icsEvent),"END:VCALENDAR"].join("\r\n");
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(new Blob([body],{type:"text/calendar;charset=utf-8"}));
+  a.download=name; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(a.href),4000);
+  toast("Fichier agenda téléchargé : ouvre-le pour l'ajouter.");
+}
+
+/* ═══════════ Confettis (validation) ═══════════ */
+function confetti(){
+  if(matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  const c=document.createElement("canvas"); c.className="confetti"; document.body.appendChild(c);
+  const x=c.getContext("2d"); c.width=innerWidth; c.height=innerHeight;
+  const cols=["#2BBF8A","#F4B63B","#FF6A3D","#5552EE","#E5607A"];
+  const P=Array.from({length:140},()=>({x:innerWidth/2,y:innerHeight*.6,vx:(Math.random()-.5)*14,vy:-Math.random()*16-6,r:Math.random()*6+4,c:cols[Math.random()*5|0],a:Math.random()*6}));
+  let f=0;(function loop(){ x.clearRect(0,0,c.width,c.height);
+    P.forEach(p=>{p.vy+=.45;p.x+=p.vx;p.y+=p.vy;p.a+=.2;x.save();x.translate(p.x,p.y);x.rotate(p.a);x.fillStyle=p.c;x.fillRect(-p.r/2,-p.r/4,p.r,p.r/2);x.restore()});
+    if(++f<120) requestAnimationFrame(loop); else c.remove() })();
+}
+
+/* ═══════════ Actions ═══════════ */
+async function copyText(t){
+  try{ await navigator.clipboard.writeText(t); return true }
+  catch{ const ta=document.createElement("textarea"); ta.value=t; document.body.appendChild(ta); ta.select(); let ok=false; try{ ok=document.execCommand("copy") }catch{} ta.remove(); return ok }
+}
+document.addEventListener("click", async e=>{
+  const b=e.target.closest("[data-act]"); if(!b) return;
+  const {act,k,id}=b.dataset;
+  switch(act){
+    case "tab": S.tab=b.dataset.tab; LS.set(K.tab,S.tab); scrollTo(0,0); schedule(); break;
+    case "filter": S.filter=b.dataset.f; schedule(); break;
+    case "open": openSheet(k); break;
+    case "close-sheet": sheet.close(); break;
+    case "vote": {
+      const cur=meP().votes?.[k], st=b.dataset.s===cur?null:b.dataset.s;
+      b.classList.remove("popped"); void b.offsetWidth; b.classList.add("popped");
+      await store.vote(S.me,k,st); break;
+    }
+    case "login": if(codeOk()) setMe(id); break;
+    case "logout": S.me=null; LS.del(K.me); S.screen=null; sheet.open&&sheet.close(); schedule(); break;
+    case "sugg": { $("#idea-place").value=b.dataset.n; const r=[...document.querySelectorAll('#idea-kinds input')].find(i=>i.value===b.dataset.kind); if(r) r.checked=true; $("#idea-place").focus(); break }
+    case "upvote": { const i=S.ideas.find(x=>x.id===id); if(i) await store.toggle("ideas",id,"voters",S.me,!(i.voters||[]).includes(S.me)); break }
+    case "del-idea": await store.del("ideas",id); toast("Idée supprimée"); break;
+    case "del-cmt": await store.del("comments",id); break;
+    case "pin": await store.set("weekends",k,{pinned:!meta(k).pinned}); toast(meta(k).pinned?"Week-end épinglé":"Épingle retirée"); renderSheet(); break;
+    case "validate-idea": { const i=S.ideas.find(x=>x.id===id); if(i) await validate(i.wk,i.place); break }
+    case "unvalidate": await store.set("weekends",k,{validated:false}); toast("Validation annulée"); renderSheet(); break;
+    case "ics": downloadIcs([CAL.byKey[k]],`week-end-${k}.ics`); break;
+    case "ics-all": downloadIcs(CAL.list.filter(w=>meta(w.key).validated),"nos-week-ends.ics"); break;
+    case "remind": {
+      const n=CAL.list.length;
+      const late=S.people.filter(p=>CAL.list.filter(w=>p.votes?.[w.key]).length<n*.5).map(p=>p.name);
+      const pins=CAL.list.filter(w=>meta(w.key).pinned&&!meta(w.key).validated).map(w=>w.label);
+      const txt=`Petit rappel pour nos week-ends 🗓️\n${late.length?`Il nous manque encore vos dispos : ${late.join(", ")}.\n`:""}${pins.length?`Week-ends proposés : ${pins.join(", ")}.\n`:""}On coche ici : ${location.href.split("#")[0]}`;
+      toast(await copyText(txt)?"Rappel copié : colle-le dans le groupe":"Copie impossible sur cet appareil"); break;
+    }
+    case "admin-in": $("#admin-err").textContent=""; $("#admin-code").value=""; $("#admin-dlg").showModal(); break;
+    case "close-admin": $("#admin-dlg").close(); break;
+    case "admin-out": S.admin=false; SS.del(K.admin); if(S.tab==="orga") S.tab="cal"; schedule(); break;
+    case "del-person":
+      if(b.dataset.confirm){ await store.del("people",id); toast("Retiré de la bande") }
+      else { b.dataset.confirm="1"; b.textContent="Confirmer le retrait ?"; setTimeout(()=>{ if(b.isConnected){ delete b.dataset.confirm; b.textContent="Retirer" } },4000) }
+      break;
+    case "reset-demo": await store.reset(); toast("Démo réinitialisée"); break;
+  }
+});
+async function validate(k,place){
+  await store.set("weekends",k,{validated:true,pinned:true,place:place||"",validatedAt:Date.now()});
+  toast("Week-end validé ! Tout le monde peut l'ajouter à son agenda."); confetti(); renderSheet();
+}
+
+document.addEventListener("submit", async e=>{
+  e.preventDefault();
+  const f=e.target;
+  if(f.id==="join-form"){
+    const err=$("#join-err"); err.textContent="";
+    if(!codeOk()) return;
+    const couple=f.querySelector('input[name="type"]:checked').value==="couple";
+    const n1=$("#name1").value.trim(), n2=$("#name2").value.trim();
+    if(!n1 || (couple&&!n2)){ err.textContent=couple?"Il faut vos deux prénoms.":"Il faut ton prénom."; return }
+    const name=couple?`${n1} & ${n2}`:n1;
+    const same=S.people.find(p=>p.name.toLowerCase()===name.toLowerCase());
+    if(same){ setMe(same.id); toast(`Re-bonjour ${same.name} !`); return }
+    const pid=`${slug(name)}-${rid().slice(0,4)}`;
+    await store.set("people",pid,{name,names:couple?[n1,n2]:[n1],type:couple?"couple":"solo",weight:couple?2:1,votes:{},at:Date.now()});
+    setMe(pid); toast(`Bienvenue ${name} ! Coche tes dispos.`);
+  }
+  if(f.id==="idea-form"){
+    const place=$("#idea-place").value.trim(); if(!place||!S.open) return;
+    await store.add("ideas",{wk:S.open,place,kind:f.querySelector('input[name="kind"]:checked')?.value||"",budget:f.querySelector('input[name="budget"]:checked')?.value||"",note:$("#idea-note").value.trim(),by:S.me,byName:meP().name,voters:[S.me],at:Date.now()});
+    $("#idea-place").value=""; $("#idea-note").value=""; $("#idea-place").blur(); toast("Idée ajoutée"); renderSheet();
+  }
+  if(f.id==="comment-form"){
+    const text=$("#comment-text").value.trim(); if(!text||!S.open) return;
+    await store.add("comments",{wk:S.open,text,by:S.me,byName:meP().name,at:Date.now()});
+    $("#comment-text").value="";
+  }
+  if(f.id==="validate-form"){ await validate(S.open,$("#validate-place").value.trim()) }
+  if(f.id==="threshold-form"){ const v=Math.max(1,Number($("#threshold").value)||4); await store.set("settings","main",{threshold:v}); toast(`Seuil réglé à ${v} personnes`) }
+  if(f.id==="admin-form"){
+    if($("#admin-code").value===String(CFG.ADMIN_CODE)){ S.admin=true; SS.set(K.admin,"1"); $("#admin-dlg").close(); S.tab="orga"; toast("Mode orga activé"); schedule() }
+    else $("#admin-err").textContent="Ce n'est pas le bon code.";
+  }
+});
+document.addEventListener("change", e=>{
+  if(e.target.name==="type"){ const c=e.target.value==="couple"; $("#name2-wrap").hidden=!c; $("#name2").required=c; $("label[for=name1]").textContent=c?"Ton prénom":"Ton prénom" }
+});
+
+/* ═══════════ Démarrage ═══════════ */
+(async function boot(){
+  const fc=CFG.firebase||{};
+  try{ store = fc.apiKey ? await firebaseStore(fc) : localStore() }
+  catch(e){ console.error(e); store=localStore(); toast("Firebase injoignable : passage en mode démo.") }
+  const on=(c,fn)=>store.watch(c,d=>{ fn(d); S.loaded.add(c); schedule() });
+  on("people",d=>S.people=d);
+  on("weekends",d=>S.weekends=Object.fromEntries(d.map(x=>[x.id,x])));
+  on("ideas",d=>S.ideas=d);
+  on("comments",d=>S.comments=d);
+  on("settings",d=>S.settings=d.find(x=>x.id==="main")||{});
+})();
+</script>
+</body>
+</html>
