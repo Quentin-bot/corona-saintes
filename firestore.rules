@@ -1,12 +1,28 @@
 rules_version = '2';
 
 // Règles publiées sur Firebase pour Corona Saintes.
-// Lecture/écriture ouvertes (pas de compte) uniquement pour les données du site,
-// rangées sous /groups. Tout le reste de la base est fermé.
+// Lecture/écriture ouvertes (pas de compte), mais limitées aux 5 collections
+// du site et à des documents de taille raisonnable.
+// Les dates spéciales sont rangées dans "weekends" (id commençant par "x-").
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /groups/{document=**} {
-      allow read, write: if true;
+
+    match /groups/{groupId}/{col}/{docId} {
+      function okCol() {
+        return col in ['people', 'weekends', 'ideas', 'comments', 'settings'];
+      }
+      function okSize() {
+        return request.resource.data.keys().size() <= 20;
+      }
+
+      allow read: if okCol();
+      allow create, update: if okCol() && okSize();
+      allow delete: if okCol();
+    }
+
+    // Tout le reste est fermé.
+    match /{document=**} {
+      allow read, write: if false;
     }
   }
 }

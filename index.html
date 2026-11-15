@@ -462,13 +462,13 @@ function seedDemo(){
   Object.values(people).slice(0,5).forEach(p=>{ if(w8) p.votes[w8]="yes"; if(w3) p.votes[w3]="yes" });
   return {
     people,
-    weekends:{ ...(w3?{[w3]:{validated:true,place:"Gîte à Étretat",pinned:true}}:{}), ...(w8?{[w8]:{pinned:true}}:{}), ...(w20?{[w20]:{pinned:true}}:{}) },
+    weekends:{ ...(w3?{[w3]:{validated:true,place:"Gîte à Étretat",pinned:true}}:{}), ...(w8?{[w8]:{pinned:true}}:{}), ...(w20?{[w20]:{pinned:true}}:{}),
+      "x-nouvelan":(()=>{ const y=new Date().getFullYear(); return {event:true,title:"Nouvel An",start:`${y}-12-31`,end:`${y+1}-01-03`,at:Date.now()} })() },
     ideas:{
       i1:{wk:w8,place:"Chalet à Annecy",kind:"Montagne",budget:"€€",note:"Lac + rando, 2h de train",by:"hugo-demo",byName:"Hugo",voters:["hugo-demo","camille-demo"],at:Date.now()-5e6},
       i2:{wk:w8,place:"Maison à Arcachon",kind:"Mer",budget:"€€€",note:"",by:"camille-demo",byName:"Camille",voters:["lea-tom-demo"],at:Date.now()-4e6}
     },
     comments:{ c1:{wk:w8,by:"jules-demo",byName:"Jules",text:"Je peux prendre la voiture, 4 places dispo !",at:Date.now()-3e6} },
-    events:{ nouvelan:(()=>{ const y=new Date().getFullYear(); return {title:"Nouvel An",start:`${y}-12-31`,end:`${y+1}-01-03`,at:Date.now()} })() },
     settings:{}
   };
 }
@@ -1020,7 +1020,7 @@ document.addEventListener("click", async e=>{
       else { b.dataset.confirm="1"; b.textContent="Confirmer le retrait ?"; setTimeout(()=>{ if(b.isConnected){ delete b.dataset.confirm; b.textContent="Retirer" } },4000) }
       break;
     case "del-event":
-      if(b.dataset.confirm){ await store.del("events",id); toast("Date spéciale supprimée") }
+      if(b.dataset.confirm){ await store.del("weekends","x-"+id); toast("Date spéciale supprimée") }
       else { b.dataset.confirm="1"; b.textContent="Confirmer ?"; setTimeout(()=>{ if(b.isConnected){ delete b.dataset.confirm; b.textContent="Supprimer" } },4000) }
       break;
     case "reset-demo": await store.reset(); toast("Démo réinitialisée"); break;
@@ -1065,7 +1065,7 @@ document.addEventListener("submit", async e=>{
     if(end<start){ err.textContent="La date de fin doit être après la date de début."; return }
     if((fromKey(end)-fromKey(start))/864e5>20){ err.textContent="21 jours maximum pour une date spéciale."; return }
     $("#ev-title").value=""; $("#ev-start").value=""; $("#ev-end").value="";
-    await store.add("events",{title,start,end,at:Date.now()});
+    await store.set("weekends","x-"+rid(),{event:true,title,start,end,at:Date.now()});
     toast(`« ${title} » ajouté au calendrier`);
   }
   if(f.id==="threshold-form"){ const v=Math.max(1,Number($("#threshold").value)||4); await store.set("settings","main",{threshold:v}); toast(`Seuil réglé à ${v} personnes`) }
@@ -1085,10 +1085,13 @@ document.addEventListener("change", e=>{
   catch(e){ console.error(e); store=localStore(); toast("Firebase injoignable : passage en mode démo.") }
   const on=(c,fn)=>store.watch(c,d=>{ fn(d); S.loaded.add(c); schedule() });
   on("people",d=>S.people=d);
-  on("weekends",d=>S.weekends=Object.fromEntries(d.map(x=>[x.id,x])));
+  on("weekends",d=>{
+    S.weekends=Object.fromEntries(d.map(x=>[x.id,x]));
+    // les dates spéciales sont rangées dans "weekends" avec un id "x-…"
+    S.events=d.filter(x=>x.event && x.id.startsWith("x-")).map(x=>({...x,id:x.id.slice(2)}));
+  });
   on("ideas",d=>S.ideas=d);
   on("comments",d=>S.comments=d);
-  on("events",d=>S.events=d);
   on("settings",d=>S.settings=d.find(x=>x.id==="main")||{});
 })();
 </script>
