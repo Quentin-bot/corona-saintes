@@ -73,6 +73,29 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 .tab{border:0;background:transparent;padding:8px 14px;border-radius:999px;font-weight:600;font-size:14px;color:var(--muted);white-space:nowrap;display:flex;gap:6px;align-items:center}
 .tab[aria-selected="true"]{background:var(--ink);color:var(--surface)}
 .tab .n{font-size:11px;background:var(--done);color:var(--done-ink);border-radius:999px;padding:0 6px;line-height:18px}
+.tab svg{width:17px;height:17px;flex:none}
+.tab .short{display:none}
+.tab .ic{position:relative;display:flex}
+/* Téléphone : tous les onglets tiennent à l'écran, icône + libellé court */
+@media (max-width:720px){
+  .tabs{display:grid;grid-template-columns:repeat(var(--n),minmax(0,1fr));gap:2px;overflow:visible;padding-bottom:8px}
+  .tab{flex-direction:column;gap:3px;padding:7px 2px 6px;border-radius:12px;font-size:11.5px;min-width:0}
+  .tab svg{width:20px;height:20px}
+  .tab .full{display:none}
+  .tab .short{display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis}
+  .tab .n{position:absolute;top:-6px;left:13px;font-size:10px;line-height:15px;padding:0 5px}
+}
+/* Indice « touche pour les détails » sur les billets */
+.more{display:inline-flex;align-items:center;gap:2px;flex:none;font-size:11px;font-weight:700;color:var(--ink);background:color-mix(in oklab,var(--surface) 75%,transparent);box-shadow:inset 0 0 0 1px color-mix(in oklab,var(--ink) 14%,transparent);border-radius:999px;padding:2px 5px 2px 8px;transition:background .15s}
+.more svg{width:12px;height:12px}
+.tile-main:hover .more,.tile-main:focus-visible .more{background:var(--ink);color:var(--surface)}
+.tile.is-done .more{color:var(--done-ink);background:rgba(255,255,255,.45)}
+.tile-top .wk{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.wk-s{display:none}
+@media (max-width:480px){.wk-l{display:none}.wk-s{display:inline}}
+@media (max-width:360px){.tile:not(.is-custom) .tile-top .wk{display:none}.tile-top{justify-content:flex-end}.tab{font-size:10.5px}}
+.tip{display:flex;align-items:center;gap:8px;margin-top:10px;font-size:13px;color:var(--ink);background:var(--surface);box-shadow:inset 0 0 0 1.5px var(--line);border-radius:12px;padding:8px 12px;width:fit-content;max-width:100%}
+.tip svg{width:16px;height:16px;flex:none;color:var(--accent)}
 .demo{background:color-mix(in oklab,var(--maybe) 25%,var(--bg));font-size:13px;padding-block:8px;text-align:center}
 
 /* Intro de vue */
@@ -564,10 +587,20 @@ function render(){
   if(S.open) renderSheet();
 }
 
+const svg=p=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${p}</svg>`;
+const TAB_IC={
+  cal:svg('<rect x="3" y="4.5" width="18" height="16" rx="3"/><path d="M3 9.5h18M8 2.5v4M16 2.5v4"/>'),
+  top:svg('<path d="M12 2.8c1 3.2 5.5 5.6 5.5 10.7A5.5 5.5 0 0 1 6.5 13.5c0-2.4 1.3-3.9 2.4-5 .2 1.8 1.1 2.8 2.1 3.2-.3-3.4.2-6.1 1-8.9z"/>'),
+  feries:svg('<path d="M5 21V4M5 4h11l-2 4 2 4H5"/>'),
+  missing:svg('<circle cx="10" cy="8" r="3.6"/><path d="M3.5 20c.6-3.4 3.2-5.6 6.5-5.6 1.2 0 2.3.3 3.2.8M17 13.5v3.6M17 20h.01"/>'),
+  orga:svg('<path d="M12 3l2.6 5.4 5.9.8-4.3 4.1 1 5.8L12 16.4 6.8 19.1l1-5.8L3.5 9.2l5.9-.8z"/>')
+};
+const CHEV=svg('<path d="M9 6l6 6-6 6"/>');
+const TAP=svg('<path d="M9 11V5.5a1.5 1.5 0 0 1 3 0V11m0-1.5a1.5 1.5 0 0 1 3 0V11m0-.5a1.5 1.5 0 0 1 3 0V15a6 6 0 0 1-6 6h-.6a6 6 0 0 1-4.7-2.3L4.4 15.6a1.6 1.6 0 0 1 2.4-2.1L9 15.5"/>');
 function header(){
   const me=meP();
-  const tabs=[["cal","Calendrier"],["top","Les plus chauds"],["feries","Jours fériés"],["missing","Qui manque à l'appel"]];
-  if(S.admin) tabs.push(["orga","Orga"]);
+  const tabs=[["cal","Calendrier","Agenda"],["top","Les plus chauds","Top"],["feries","Jours fériés","Fériés"],["missing","Qui manque à l'appel","Absents"]];
+  if(S.admin) tabs.push(["orga","Orga","Orga"]);
   const missingN=S.people.filter(p=>!Object.keys(p.votes||{}).length).length;
   return `
   ${store.demo?`<div class="demo"><div class="wrap"><b>Mode démo.</b> Les données restent dans ce navigateur et la bande est fictive. Renseigne Firebase dans <code>config.js</code> pour partager le site.</div></div>`:""}
@@ -577,8 +610,8 @@ function header(){
       <div class="me"><span class="muted">Salut</span> <b>${esc(me.name)}</b>
         <button class="btn ghost sm" data-act="logout" title="Changer de personne">Changer</button></div>
     </div>
-    <nav class="tabs" role="tablist">
-      ${tabs.map(([id,l])=>`<button class="tab" role="tab" aria-selected="${S.tab===id}" data-act="tab" data-tab="${id}">${l}${id==="missing"&&missingN?`<span class="n">${missingN}</span>`:""}</button>`).join("")}
+    <nav class="tabs" role="tablist" style="--n:${tabs.length}">
+      ${tabs.map(([id,l,sh])=>`<button class="tab" role="tab" aria-selected="${S.tab===id}" aria-label="${l}" data-act="tab" data-tab="${id}"><span class="ic">${TAB_IC[id]}${id==="missing"&&missingN?`<span class="n">${missingN}</span>`:""}</span><span class="full">${l}</span><span class="short">${sh}</span></button>`).join("")}
     </nav>
   </div></header>`;
 }
@@ -622,6 +655,7 @@ function viewCal(){
     <div>
       <h1>On se cale quel week-end ?</h1>
       <p>Coche tes dispos sur chaque week-end : <b>✓</b> dispo, <b>?</b> peut-être, <b>✕</b> pas dispo. Plus un billet est vert, plus il y a de monde. Tu as répondu à <b class="num">${answered}/${ITEMS().length}</b> week-ends.</p>
+      <div class="tip">${TAP}<span><b>Touche une date</b> pour voir qui vient, les idées de lieux et les commentaires.</span></div>
     </div>
     <div class="stack" style="gap:10px;align-items:flex-end">
       <div class="filters">${F.map(([id,l])=>`<button class="chip" aria-pressed="${S.filter===id}" data-act="filter" data-f="${id}">${l}</button>`).join("")}</div>
@@ -647,7 +681,7 @@ function tile(w){
   if(nIdeas && !m.validated) badges.push(`<span class="pill">${nIdeas} idée${nIdeas>1?"s":""}</span>`);
   return `<article class="${cls}" style="--h:${s.heat}">
     <button class="tile-main" data-act="open" data-k="${w.key}" aria-label="Week-end du ${w.label}, ${s.yesW} dispo">
-      <span class="tile-top"><span class="wk">${w.custom?`${esc(w.title.toUpperCase())} · ${w.days} JOURS`:`SEMAINE ${w.week}`}</span></span>
+      <span class="tile-top"><span class="wk">${w.custom?`${esc(w.title.toUpperCase())} · ${w.days} JOURS`:`<span class="wk-l">SEMAINE </span><span class="wk-s">SEM. </span>${w.week}`}</span><span class="more" aria-hidden="true">Détails${CHEV}</span></span>
       <span class="dates">${w.label}</span>
       <span class="count num"><b>${s.yesW}</b> dispo${s.maybeW?` · ${s.maybeW} peut-être`:""}</span>
       <span class="badges">${badges.join("")}</span>
